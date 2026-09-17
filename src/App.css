@@ -71,26 +71,6 @@
   color: var(--blue-700);
 }
 
-.main-nav {
-  display: flex;
-  flex-shrink: 0;
-  gap: 28px;
-  padding-left: 24px;
-}
-
-.main-nav a {
-  color: var(--slate-500);
-  font-size: 14px;
-  font-weight: 700;
-  white-space: nowrap;
-  text-decoration: none;
-  transition: color 160ms ease;
-}
-
-.main-nav a:hover {
-  color: var(--blue-700);
-}
-
 .search-form {
   display: flex;
   flex: 1;
@@ -234,10 +214,71 @@
   white-space: nowrap;
 }
 
-.main-content {
+.content-layout {
+  display: flex;
   max-width: 1280px;
+  min-height: calc(100vh - 76px);
   margin: 0 auto;
-  padding: 80px 24px;
+}
+
+.sidebar {
+  display: flex;
+  width: 240px;
+  flex-shrink: 0;
+  flex-direction: column;
+  padding: 36px 20px 24px;
+  border-right: 1px solid var(--slate-200);
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.sidebar-label {
+  margin: 0 12px 14px;
+  color: var(--slate-500);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.sidebar-nav,
+.sidebar-footer {
+  display: grid;
+  gap: 6px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 24px;
+  border-top: 1px solid var(--slate-200);
+}
+
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+  border-radius: 10px;
+  color: var(--slate-500);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.sidebar-link:hover {
+  color: var(--blue-700);
+  background: var(--blue-100);
+  transform: translateX(2px);
+}
+
+.sidebar-link.active {
+  color: var(--blue-800);
+  background: var(--blue-100);
+}
+
+.main-content {
+  flex: 1;
+  padding: 80px 48px;
 }
 
 .eyebrow {
@@ -278,12 +319,12 @@
 }
 
 @media (max-width: 900px) {
-  .main-nav {
-    display: none;
-  }
-
   .search-form {
     min-width: 280px;
+  }
+
+  .sidebar {
+    width: 210px;
   }
 }
 
@@ -307,7 +348,28 @@
   }
 
   .main-content {
-    padding: 56px 20px;
+    padding: 56px 24px;
+  }
+
+  .content-layout {
+    display: block;
+  }
+
+  .sidebar {
+    width: 100%;
+    min-height: auto;
+    padding: 20px 16px;
+    border-right: 0;
+    border-bottom: 1px solid var(--slate-200);
+  }
+
+  .sidebar-nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sidebar-footer {
+    margin-top: 16px;
+    padding-top: 16px;
   }
 }
 .App {

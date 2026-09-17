@@ -1,4 +1,14 @@
-import { Bell, BookOpen, Search, UserRound } from 'lucide-react';
+import {
+  Bell,
+  BookOpen,
+  Bookmark,
+  Clock3,
+  LayoutDashboard,
+  Library,
+  Search,
+  Settings,
+  UserRound,
+} from 'lucide-react';
 import './App.css';
 
 function App() {
@@ -12,18 +22,6 @@ function App() {
             </span>
             <span>Learn <span className="brand-accent">Hub</span></span>
           </a>
-
-          <nav aria-label="Main navigation" className="main-nav">
-            <a href="#resources"> 
-              Resources
-            </a>
-            <a href="#courses">
-              Courses
-            </a>
-            <a href="#about">
-              About
-            </a>
-          </nav>
 
           <form className="search-form" role="search">
             <label htmlFor="site-search" className="visually-hidden">Search learning resources</label>
@@ -75,15 +73,44 @@ function App() {
         </div>
       </header>
 
-      <main className="main-content">
-        <p className="eyebrow">Your learning, organized</p>
-        <h1>
-          Learn something useful today.
-        </h1>
-        <p className="intro-text">
-          Explore clear, practical learning resources gathered in one place.
-        </p>
-      </main>
+      <div className="content-layout">
+        <aside className="sidebar">
+          <p className="sidebar-label">Workspace</p>
+          <nav aria-label="Sidebar navigation" className="sidebar-nav">
+            <a href="#dashboard" className="sidebar-link active">
+              <LayoutDashboard size={18} aria-hidden="true" />
+              Dashboard
+            </a>
+            <a href="#library" className="sidebar-link">
+              <Library size={18} aria-hidden="true" />
+              My library
+            </a>
+            <a href="#saved" className="sidebar-link">
+              <Bookmark size={18} aria-hidden="true" />
+              Saved resources
+            </a>
+            <a href="#recent" className="sidebar-link">
+              <Clock3 size={18} aria-hidden="true" />
+              Recent activity
+            </a>
+          </nav>
+
+          <div className="sidebar-footer">
+            <a href="#settings" className="sidebar-link">
+              <Settings size={18} aria-hidden="true" />
+              Settings
+            </a>
+          </div>
+        </aside>
+
+        <main className="main-content">
+          <p className="eyebrow">Your learning, organized</p>
+          <h1>Learn something useful today.</h1>
+          <p className="intro-text">
+            Explore clear, practical learning resources gathered in one place.
+          </p>
+        </main>
+      </div>
     </div>
   );
 }
