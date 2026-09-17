@@ -14,9 +14,22 @@
 }
 
 .app-shell {
+  display: flex;
   min-height: 100vh;
   color: var(--slate-950);
   background: linear-gradient(135deg, var(--slate-50), #ffffff 52%, #eff6ff);
+}
+
+.main-area {
+  min-width: 0;
+  flex: 1;
+}
+
+.header-page-title {
+  color: var(--blue-800);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
 }
 
 .site-header {
@@ -30,11 +43,16 @@
   display: flex;
   align-items: center;
   gap: 16px;
-  max-width: 1280px;
-  min-height: 76px;
-  margin: 0 auto;
-  padding: 16px 24px;
-  overflow-x: auto;
+  min-height: 112px;
+  padding: 24px;
+}
+
+.header-center {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 .brand-link {
@@ -73,9 +91,7 @@
 
 .search-form {
   display: flex;
-  flex: 1;
-  min-width: 320px;
-  padding: 0 12px;
+  width: min(440px, 100%);
 }
 
 .search-box {
@@ -214,21 +230,19 @@
   white-space: nowrap;
 }
 
-.content-layout {
-  display: flex;
-  max-width: 1280px;
-  min-height: calc(100vh - 76px);
-  margin: 0 auto;
-}
-
 .sidebar {
   display: flex;
   width: 240px;
+  min-height: 100vh;
   flex-shrink: 0;
   flex-direction: column;
-  padding: 36px 20px 24px;
+  padding: 24px 20px;
   border-right: 1px solid var(--slate-200);
   background: rgba(255, 255, 255, 0.62);
+}
+
+.sidebar .brand-link {
+  margin-bottom: 48px;
 }
 
 .sidebar-label {
@@ -319,10 +333,6 @@
 }
 
 @media (max-width: 900px) {
-  .search-form {
-    min-width: 280px;
-  }
-
   .sidebar {
     width: 210px;
   }
@@ -330,16 +340,12 @@
 
 @media (max-width: 560px) {
   .header-inner {
-    padding: 12px 16px;
+    min-height: 88px;
+    padding: 18px 16px;
   }
 
   .profile-name {
     display: none;
-  }
-
-  .search-form {
-    min-width: 250px;
-    padding: 0 4px;
   }
 
   .search-box select {
@@ -351,20 +357,14 @@
     padding: 56px 24px;
   }
 
-  .content-layout {
-    display: block;
-  }
-
   .sidebar {
-    width: 100%;
+    width: 180px;
     min-height: auto;
     padding: 20px 16px;
-    border-right: 0;
-    border-bottom: 1px solid var(--slate-200);
   }
 
-  .sidebar-nav {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .sidebar .brand-link {
+    margin-bottom: 32px;
   }
 
   .sidebar-footer {
