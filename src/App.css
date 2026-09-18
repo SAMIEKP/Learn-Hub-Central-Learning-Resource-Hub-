@@ -104,7 +104,18 @@ button, a { -webkit-tap-highlight-color: transparent; }
   min-height: 100vh;
   overflow-y: auto;
   overscroll-behavior-y: contain;
-  background: var(--canvas);
+  background: #f1f0e5;
+}
+
+.discovery-top {
+  min-height: 220px;
+  background: #f1f0e5;
+}
+
+.discovery-bottom {
+  min-height: calc(100vh - 220px);
+  border-top: 1px solid #ecebe4;
+  background: #ffffff;
 }
 
 .topbar {
@@ -119,8 +130,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   flex-shrink: 0;
   padding: 18px 54px 12px;
   overflow: hidden;
-  background: rgba(241, 240, 229, 0.94);
-  backdrop-filter: blur(10px);
+  background: #f1f0e5;
   transition: height 220ms ease, min-height 220ms ease, padding 220ms ease;
 }
 
@@ -182,6 +192,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .notification-dot { position: absolute; top: 7px; right: 7px; width: 6px; height: 6px; border: 1px solid var(--canvas); border-radius: 50%; background: var(--coral); }
 
 .discovery-content { width: 100%; padding: 28px 54px 54px; }
+.discover-tabs { display: flex; gap: 24px; margin-bottom: 13px; border-bottom: 1px solid var(--line); }
+.discover-tabs a { padding: 0 0 11px; color: var(--muted); font-size: 12px; font-weight: 600; text-decoration: none; }
+.discover-tabs a:hover, .discover-tabs a.active { color: var(--green); }
+.discover-tabs a.active { border-bottom: 2px solid var(--green); }
+.discovery-purpose { max-width: 720px; margin: 0 0 31px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .page-heading { position: relative; max-width: 600px; padding: 10px 0 24px; }
 .page-heading::after { position: absolute; top: -35px; left: -64px; z-index: 0; width: 580px; height: 300px; border-radius: 0 0 90px 90px; background: rgba(255, 255, 255, 0.18); content: ''; pointer-events: none; }
 .page-heading > * { position: relative; z-index: 1; }
@@ -234,6 +249,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 900px) {
   .sidebar { width: 190px; padding: 24px 18px; }
   .discovery-content, .topbar { padding-right: 32px; padding-left: 32px; }
+  .discover-tabs { gap: 16px; overflow-x: auto; }
   .header-search-row { width: min(575px, 62%); }
   .recommendation-shelf, .category-shelf { gap: 16px; }
   .book-cover { height: 210px; }
@@ -247,6 +263,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .sidebar-nav { display: flex; gap: 4px; overflow-x: auto; }
   .sidebar-link { flex-shrink: 0; padding: 8px 10px; }
   .discovery-content, .topbar { padding-right: 20px; padding-left: 20px; }
+  .discover-tabs { gap: 18px; }
   .header-search-row { width: 100%; }
   .discovery-page { height: auto; min-height: 100vh; overflow: visible; }
   .topbar { height: auto; min-height: 64px; }
