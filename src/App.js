@@ -10,6 +10,35 @@ import {
   IconUser,
   IconSparkles,
   IconSettings,
+  IconPhoto,
+  IconFileText,
+  IconHelpCircle,
+  IconThumbUp,
+  IconMessageCircle,
+  IconRepeat,
+  IconPlayerPlay,
+  IconTrendingUp,
+  IconBolt,
+  IconTarget,
+  IconStarFilled,
+  IconDownload,
+  IconBuildingStore,
+  IconUsers,
+  IconChevronRight,
+  IconCheck,
+  IconShieldCheck,
+  IconMail,
+  IconSchool,
+  IconLock,
+  IconPalette,
+  IconEye,
+  IconLogout,
+  IconEdit,
+  IconMessageCircle2,
+  IconBook2,
+  IconQuestionMark,
+  IconAward,
+  IconAdjustments,
 } from '@tabler/icons-react';
 import './App.css';
 import logo from './logo.svg';
@@ -623,7 +652,7 @@ const popularResources = [
     rating: '4.9',
     reviews: '3.4k',
     downloads: '14.8k downloads',
-    trendBadge: '🔥 #1 Most Popular',
+    trendBadge: '#1 Most Popular',
     format: 'Quick Reference',
     image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=600&q=80'
   },
@@ -635,7 +664,7 @@ const popularResources = [
     rating: '4.9',
     reviews: '2.9k',
     downloads: '11.2k downloads',
-    trendBadge: '🔥 #2 Trending',
+    trendBadge: '#2 Trending',
     format: 'Masterclass',
     image: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=600&q=80'
   },
@@ -647,7 +676,7 @@ const popularResources = [
     rating: '4.8',
     reviews: '1.9k',
     downloads: '8.4k downloads',
-    trendBadge: '🔥 #3 Trending',
+    trendBadge: '#3 Trending',
     format: 'Core Textbook',
     image: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=600&q=80'
   },
@@ -659,7 +688,7 @@ const popularResources = [
     rating: '4.9',
     reviews: '2.1k',
     downloads: '9.6k downloads',
-    trendBadge: '🔥 #4 Trending',
+    trendBadge: '#4 Trending',
     format: 'Interactive Guide',
     image: 'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?auto=format&fit=crop&w=600&q=80'
   }
@@ -764,6 +793,114 @@ const categories = [
   { name: 'Computer Studies Dept', count: '45 resources', image: 'https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?auto=format&fit=crop&w=300&q=80', color: 'category-teal' },
 ];
 
+const settingsSections = [
+  ['account', 'Account', 'Identity, contact details, and password', IconUser],
+  ['membership', 'School and membership', 'School, class, and department', IconSchool],
+  ['notifications', 'Notifications', 'School, questions, and new materials', IconBell],
+  ['library', 'Library and downloads', 'Views, history, and offline files', IconBook2],
+  ['recommendations', 'Recommendations', 'Personalization and discovery', IconCompass],
+  ['privacy', 'Privacy and visibility', 'Profile and activity controls', IconEye],
+  ['appearance', 'Appearance and accessibility', 'Theme, layout, and reading comfort', IconPalette],
+  ['security', 'Security', 'Sessions, verification, and recovery', IconShieldCheck],
+  ['help', 'Help and feedback', 'Support, policies, and feedback', IconMessageCircle2],
+  ['about', 'About Learn Hub', 'Version, licenses, and acknowledgements', IconAward],
+];
+
+function SettingToggle({ label, description, defaultChecked = true }) {
+  const [checked, setChecked] = useState(defaultChecked);
+  return <label className="setting-toggle-row"><span><strong>{label}</strong>{description && <small>{description}</small>}</span><input type="checkbox" checked={checked} onChange={() => setChecked(!checked)} /><span className="toggle-control" aria-hidden="true"><span /></span></label>;
+}
+
+function SettingsPage() {
+  const [activeSection, setActiveSection] = useState('account');
+  const selected = settingsSections.find(([id]) => id === activeSection);
+  const SectionIcon = selected[3];
+  return <div className="product-page settings-page">
+    <header className="product-page-header"><div><span className="eyebrow">Account controls</span><h1>Settings</h1><p>Shape how Learn Hub works for you.</p></div><div className="settings-status"><IconCheck size={15} /> All changes saved</div></header>
+    <div className="settings-layout">
+      <nav className="settings-nav" aria-label="Settings sections"><span className="settings-nav-label">Manage Learn Hub</span>{settingsSections.map(([id, label, description, ItemIcon]) => <button key={id} type="button" className={`settings-nav-item ${activeSection === id ? 'active' : ''}`} onClick={() => setActiveSection(id)}><ItemIcon size={17} stroke={1.8} /><span><b>{label}</b><small>{description}</small></span><IconChevronRight size={15} /></button>)}<button type="button" className="settings-logout"><IconLogout size={17} /> Log out</button></nav>
+      <section className="settings-detail" aria-labelledby="settings-detail-title"><div className="settings-detail-heading"><div className="settings-detail-icon"><SectionIcon size={20} /></div><div><span className="eyebrow">Settings</span><h2 id="settings-detail-title">{selected[1]}</h2><p>{selected[2]}</p></div></div>
+        {activeSection === 'account' && <><div className="settings-card account-summary-card"><div className="profile-avatar large">SKP</div><div className="account-summary-copy"><span className="status-pill"><span /> Active account</span><h3>SAMUEL KP</h3><p>Student · Blantyre Secondary School · Form 3</p><small>Member since 16 September 2024</small></div><button type="button" className="outline-button"><IconEdit size={15} /> Edit profile</button></div><div className="settings-card"><div className="card-title-row"><div><h3>Account information</h3><p>Your identity and school details.</p></div><IconLock size={17} /></div><div className="account-fields"><div><span>Full name</span><strong>SAMUEL KP</strong></div><div><span>Account type</span><strong>Student</strong></div><div><span>Email address</span><strong>samuel.kp@example.com</strong></div><div><span>Phone number</span><strong>+265 888 204 118</strong></div><div><span>School</span><strong>Blantyre Secondary School</strong></div><div><span>Class / Form</span><strong>Form 3</strong></div></div></div><div className="settings-card schedule-note"><IconAdjustments size={18} /><div><strong>Profile editing schedule</strong><p>Your profile was last updated on 16 September 2026. You can edit it again on 16 March 2027. Sensitive membership changes require approval.</p></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Password</h3><p>Keep your account access secure.</p></div><button type="button" className="text-button">Change password <IconChevronRight size={15} /></button></div></div></>}
+        {activeSection === 'membership' && <><div className="settings-card"><div className="card-title-row"><div><h3>Student membership</h3><p>These details connect you to the right resources.</p></div><span className="status-pill"><span /> Approved</span></div><div className="account-fields"><div><span>Current school</span><strong>Blantyre Secondary School</strong></div><div><span>Class / Form</span><strong>Form 3</strong></div><div><span>Registration number</span><strong>BS-24-0318</strong></div><div><span>Primary department</span><strong>Sciences &amp; Technology</strong></div><div><span>Membership approved</span><strong>18 September 2024</strong></div></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Departments and subjects</h3><p>Your selections shape recommendations and notifications.</p></div><button type="button" className="outline-button">Update preferences</button></div><div className="chip-list"><span className="choice-chip selected"><IconCheck size={13} /> Science <b>Primary</b></span><span className="choice-chip selected"><IconCheck size={13} /> Humanities</span><span className="choice-chip">Business</span><span className="choice-chip">Languages</span></div></div><div className="action-list"><button type="button">Request a school change <IconChevronRight size={16} /></button><button type="button">Report incorrect school information <IconChevronRight size={16} /></button></div></>}
+        {activeSection === 'notifications' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Notification channels</h3><p>Security and recovery alerts always stay on.</p></div></div><SettingToggle label="In-app notifications" description="Updates inside Learn Hub" /><SettingToggle label="Push notifications" description="New activity on your devices" /><SettingToggle label="Email notifications" defaultChecked={false} /><div className="subsection-heading">School notifications</div><SettingToggle label="Books and subject notes" /><SettingToggle label="Past papers" /><SettingToggle label="Video tutorials" defaultChecked={false} /><SettingToggle label="School announcements" /><div className="subsection-heading">Question notifications</div><SettingToggle label="Answers to my questions" /><SettingToggle label="Correct-answer confirmations" /><SettingToggle label="Activity on followed questions" defaultChecked={false} /></div>}
+        {activeSection === 'library' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Library preferences</h3><p>Make your study library behave the way you expect.</p></div></div><div className="select-row"><label>Default library view<select defaultValue="grid"><option value="grid">Grid</option><option value="list">List</option></select></label><label>Default sorting<select defaultValue="recent"><option value="recent">Recent activity</option><option value="title">Title</option><option value="author">Author</option></select></label></div><SettingToggle label="Automatically add opened resources to history" /><SettingToggle label="Show completed resources" /><SettingToggle label="Confirm before removing a resource" /><div className="subsection-heading">Downloads</div><SettingToggle label="Wi-Fi-only downloads" /><SettingToggle label="Ask before downloading large files" /><div className="storage-meter"><div><span>Storage used</span><strong>420 MB of 2 GB</strong></div><div className="meter-track"><span style={{ width: '21%' }} /></div><button type="button" className="text-button">Manage downloads <IconChevronRight size={15} /></button></div></div>}
+        {activeSection === 'recommendations' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Recommendation sources</h3><p>Choose what Learn Hub can use to personalize your shelves.</p></div></div><SettingToggle label="My department" /><SettingToggle label="My class / Form" /><SettingToggle label="My school" /><SettingToggle label="My reading history" /><SettingToggle label="My likes and saved items" /><SettingToggle label="Popular resources" /><div className="recommendation-note"><IconCompass size={17} /><span>Recommendations may include “Recommended because you selected Science” or “New from your school.”</span></div><button type="button" className="danger-link">Reset recommendation history</button></div>}
+        {activeSection === 'privacy' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Profile visibility</h3><p>Control who can discover your public learning identity.</p></div></div><div className="visibility-options"><label><input type="radio" name="visibility" defaultChecked /> <span><strong>My school</strong><small>Recommended for students</small></span></label><label><input type="radio" name="visibility" /> <span><strong>All approved Learn Hub users</strong><small>Your public profile can be viewed by approved members</small></span></label><label><input type="radio" name="visibility" /> <span><strong>Private</strong><small>Only you can see your profile activity</small></span></label></div><div className="subsection-heading">Activity privacy</div><SettingToggle label="Questions and answers" /><SettingToggle label="Liked resources" defaultChecked={false} /><SettingToggle label="Recently read and completed resources" defaultChecked={false} /><div className="privacy-callout"><IconLock size={16} /><span>Private notes, highlights, email, phone number, and reading history are private by default.</span></div></div>}
+        {activeSection === 'appearance' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Appearance and accessibility</h3><p>Comfortable reading for every study session.</p></div></div><div className="theme-options"><button type="button" className="theme-choice active"><span className="theme-swatch light" /> Light <IconCheck size={15} /></button><button type="button" className="theme-choice"><span className="theme-swatch dark" /> Dark</button><button type="button" className="theme-choice"><span className="theme-swatch system" /> System</button></div><SettingToggle label="Larger text" /><SettingToggle label="High contrast colors" /><SettingToggle label="Reduced motion" defaultChecked={false} /><SettingToggle label="Dyslexia-friendly font" defaultChecked={false} /><SettingToggle label="Prefer captions" /><SettingToggle label="Prefer transcripts" /></div>}
+        {activeSection === 'security' && <div className="settings-card settings-card-stack"><div className="security-status-row"><span className="security-check"><IconCheck size={15} /></span><div><strong>Email verified</strong><small>samuel.kp@example.com</small></div><b>Yes</b></div><div className="security-status-row"><span className="security-check"><IconCheck size={15} /></span><div><strong>Phone verified</strong><small>+265 888 204 118</small></div><b>Yes</b></div><div className="security-status-row"><span className="security-icon"><IconShieldCheck size={15} /></span><div><strong>Two-step verification</strong><small>Add another layer of protection</small></div><button type="button" className="outline-button">Set up</button></div><div className="security-summary"><span>Active devices <strong>2</strong></span><span>Last login <strong>Today, 14:20</strong></span></div><button type="button" className="danger-button">Sign out of all devices</button></div>}
+        {activeSection === 'help' && <div className="settings-card settings-card-stack"><div className="help-row"><IconQuestionMark size={19} /><div><strong>Help center</strong><span>Answers about learning, publishing, and downloads</span></div><IconChevronRight size={16} /></div><div className="help-row"><IconMessageCircle2 size={19} /><div><strong>Report a technical problem</strong><span>Tell us what went wrong</span></div><IconChevronRight size={16} /></div><div className="help-row"><IconMail size={19} /><div><strong>Contact platform support</strong><span>support@learnhub.mw</span></div><IconChevronRight size={16} /></div><div className="link-row"><span>Terms of use</span><span>Privacy policy</span><span>Community guidelines</span></div></div>}
+        {activeSection === 'about' && <div className="settings-card about-card"><div className="about-mark"><img src={logo} alt="" /></div><h3>Learn Hub</h3><p>A digital educational library for secondary schools in Malawi.</p><span className="version-label">Version 1.0.0 · Build 2026.09.20</span><div className="link-row"><span>Terms of use</span><span>Privacy policy</span><span>Licenses</span></div><button type="button" className="outline-button">Check for updates</button></div>}
+      </section>
+    </div>
+  </div>;
+}
+
+function ProfilePage({ onOpenSettings }) {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [profileName, setProfileName] = useState('SAMUEL KP');
+  const [draftName, setDraftName] = useState('SAMUEL KP');
+  const [profileImage, setProfileImage] = useState(null);
+  const [draftImage, setDraftImage] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const tabs = ['overview', 'questions', 'answers', 'library', 'activity'];
+  const initials = profileName.split(' ').map((part) => part[0]).join('').slice(0, 3);
+
+  const openEditor = () => {
+    setDraftName(profileName);
+    setDraftImage(profileImage);
+    setIsEditing(true);
+  };
+
+  const handleImageChange = (event) => {
+    const file = event.target.files[0];
+    if (file) setDraftImage(URL.createObjectURL(file));
+  };
+
+  const saveProfile = (event) => {
+    event.preventDefault();
+    if (draftName.trim()) setProfileName(draftName.trim());
+    setProfileImage(draftImage);
+    setIsEditing(false);
+  };
+
+  const renderAvatar = (className) => profileImage
+    ? <img className={`${className} profile-image`} src={profileImage} alt={`${profileName} profile`} />
+    : <div className={className}>{initials}</div>;
+
+  return <div className="product-page profile-page">
+    <header className="library-header profile-page-header">
+      <div className="library-header-content">
+        <div className="page-heading">
+          <h1>Profile</h1>
+        </div>
+        <div className="user-actions">
+          <div className="user-avatar">SKP</div>
+          <span className="user-name">SAMUEL KP</span>
+          <button type="button" className="notification-button" aria-label="View notifications">
+            <span>Notifications</span>
+            <span className="notification-dot" aria-hidden="true" />
+          </button>
+        </div>
+      </div>
+    </header>
+    <div className="profile-background profile-background-top" aria-hidden="true" />
+    <div className="profile-background profile-background-bottom" aria-hidden="true" />
+    <header className="profile-hero">
+      <div className="profile-hero-main">{renderAvatar('profile-avatar profile-avatar-hero')}<div><span className="eyebrow">My public profile</span><h1>{profileName}</h1><p className="profile-role">Student <span>·</span> Form 3</p><p className="profile-school"><IconSchool size={15} /> Blantyre Secondary School <span>·</span> Sciences &amp; Technology</p><p className="profile-bio">Curious learner building a stronger foundation in science, mathematics, and the ideas that connect them.</p><span className="visibility-indicator"><IconEye size={14} /> Visible to my school</span></div></div>
+      <div className="profile-actions"><button type="button" className="outline-button" onClick={onOpenSettings}><IconAdjustments size={15} /> Settings</button><button type="button" className="primary-button" onClick={openEditor}><IconEdit size={15} /> Edit profile</button></div>
+    </header>
+    <nav className="profile-tabs" aria-label="Profile sections">{tabs.map((tab) => <button key={tab} type="button" className={activeTab === tab ? 'active' : ''} onClick={() => setActiveTab(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>)}</nav>
+    <div className="profile-content">
+      {activeTab === 'overview' && <><div className="profile-stats"><div><strong>18</strong><span>Questions asked</span></div><div><strong>42</strong><span>Answers received</span></div><div><strong>7</strong><span>Resources completed</span></div><div><strong>3</strong><span>Saved collections</span></div></div><div className="profile-grid"><section className="profile-panel"><div className="panel-heading"><div><span className="eyebrow">Learning focus</span><h2>My departments</h2></div><IconBook2 size={18} /></div><div className="profile-chip-row"><span className="profile-chip primary">Science <b>Primary</b></span><span className="profile-chip">Humanities</span></div><div className="panel-heading panel-heading-spaced"><div><span className="eyebrow">Subjects</span><h2>Preferred subjects</h2></div></div><div className="subject-list"><span>Biology</span><span>Chemistry</span><span>Mathematics</span></div></section><section className="profile-panel progress-panel"><div className="panel-heading"><div><span className="eyebrow">This term</span><h2>Learning progress</h2></div><IconAward size={18} /></div><div className="goal-ring"><strong>68%</strong><span>of your reading goal</span></div><div className="progress-track"><span style={{ width: '68%' }} /></div><p>12 of 18 planned resources completed this term.</p><button type="button" className="text-button">View activity <IconChevronRight size={15} /></button></section></div></>}
+      {activeTab === 'questions' && <section className="profile-panel profile-list-panel"><div className="panel-heading"><div><span className="eyebrow">Public activity</span><h2>Questions asked</h2></div><span className="count-label">18 total</span></div><article className="question-row"><div><span className="profile-chip">Biology</span><h3>How does photosynthesis produce glucose?</h3><p>4 answers · 8 likes</p></div><span className="question-status answered">Answered</span></article><article className="question-row"><div><span className="profile-chip">Biology</span><h3>What is the difference between mitosis and meiosis?</h3><p>2 answers · 5 likes</p></div><span className="question-status open">Open</span></article></section>}
+      {activeTab === 'answers' && <section className="profile-panel empty-profile-panel"><IconMessageCircle2 size={26} /><h2>Answers from {profileName}</h2><p>Public answers will appear here as you help other learners.</p></section>}
+      {activeTab === 'library' && <section className="profile-panel profile-list-panel"><div className="panel-heading"><div><span className="eyebrow">Shared learning</span><h2>Saved collections</h2></div></div><div className="collection-list"><div><span className="collection-icon"><IconBook size={18} /></span><span><strong>Chemistry Study Pack</strong><small>12 resources · Updated 15 Sep 2026</small></span><IconChevronRight size={16} /></div><div><span className="collection-icon coral"><IconBook size={18} /></span><span><strong>Mathematics Past Papers</strong><small>15 resources · Updated 5 Sep 2026</small></span><IconChevronRight size={16} /></div></div></section>}
+      {activeTab === 'activity' && <section className="profile-panel empty-profile-panel"><IconEye size={26} /><h2>Activity is private</h2><p>Recent reading, notes, and highlights are only visible to you.</p><button type="button" className="outline-button" onClick={onOpenSettings}>Review privacy settings</button></section>}
+    </div>
+    {isEditing && <div className="profile-modal-backdrop" role="presentation"><form className="profile-editor" onSubmit={saveProfile}><div className="profile-editor-heading"><div><span className="eyebrow">Profile details</span><h2>Edit profile</h2></div><button type="button" className="modal-close" aria-label="Close profile editor" onClick={() => setIsEditing(false)}>×</button></div><div className="profile-editor-avatar">{draftImage ? <img className="profile-image" src={draftImage} alt="Profile preview" /> : <div className="profile-avatar profile-avatar-hero">{initials}</div>}<label className="upload-button"><IconPhoto size={15} /> Change picture<input type="file" accept="image/*" onChange={handleImageChange} /></label></div><label className="profile-field">Full name<input type="text" value={draftName} onChange={(event) => setDraftName(event.target.value)} required /></label><p className="profile-editor-note">Your profile picture and name are visible according to your privacy settings.</p><div className="profile-editor-actions"><button type="button" className="outline-button" onClick={() => setIsEditing(false)}>Cancel</button><button type="submit" className="primary-button">Save changes</button></div></form></div>}
+  </div>;
+}
+
 function App() {
   const [activeTab, setActiveTab] = useState('all');
   const [isHeaderShrunk, setIsHeaderShrunk] = useState(false);
@@ -805,7 +942,7 @@ function App() {
             <IconBell size={17} stroke={2} />
             <span>Notifications</span>
           </a>
-          <a href="#profile" className="sidebar-link">
+          <a href="#profile" className={`sidebar-link ${currentPage === 'profile' ? 'active' : ''}`} onClick={() => setCurrentPage('profile')}>
             <IconUser size={17} stroke={2} />
             <span>Profile</span>
           </a>
@@ -816,7 +953,7 @@ function App() {
             <IconSparkles size={17} stroke={2} />
             <span>Publisher Studio</span>
           </a>
-          <a href="#settings" className="sidebar-link">
+          <a href="#settings" className={`sidebar-link ${currentPage === 'settings' ? 'active' : ''}`} onClick={() => setCurrentPage('settings')}>
             <IconSettings size={17} stroke={2} />
             <span>Settings</span>
           </a>
@@ -856,8 +993,8 @@ function App() {
             </div>
           </div>
           <div className="user-actions">
-            <div className="user-avatar">DW</div>
-            <span className="user-name">Davis Workman</span>
+            <div className="user-avatar">SKP</div>
+            <span className="user-name">SAMUEL KP</span>
             <button type="button" className="notification-button" aria-label="View notifications">
               <span>Notifications</span>
               <span className="notification-dot" aria-hidden="true" />
@@ -974,7 +1111,7 @@ function App() {
                     <div className="kindle-meta-row">
                       <span className="kindle-meta-tag">{book.meta}</span>
                       <div className="kindle-rating">
-                        <span className="star-icon">★</span>
+                        <span className="star-icon"><IconStarFilled size={12} /></span>
                         <span className="rating-val">{book.rating}</span>
                       </div>
                     </div>
@@ -1024,7 +1161,7 @@ function App() {
                     <div className="kindle-meta-row">
                       <span className="kindle-meta-tag">{paper.meta}</span>
                       <div className="kindle-rating">
-                        <span className="star-icon">★</span>
+                        <span className="star-icon"><IconStarFilled size={12} /></span>
                         <span className="rating-val">{paper.rating}</span>
                       </div>
                     </div>
@@ -1035,7 +1172,7 @@ function App() {
                       <span>{paper.badge}</span>
                     </div>
                     <div className="paper-footer-stats">
-                      <span>📥 {paper.downloads}</span>
+                      <span><IconDownload size={12} stroke={2} /> {paper.downloads}</span>
                       <button type="button" className="quick-preview-btn">Download PDF</button>
                     </div>
                   </div>
@@ -1072,7 +1209,7 @@ function App() {
                     <h3 className="kindle-title" title={item.title}>{item.title}</h3>
                     <p className="kindle-author">{item.teacher}</p>
                     <div className="school-origin-row">
-                      <span className="school-icon-badge">🏛️</span>
+                      <span className="school-icon-badge"><IconBuildingStore size={12} stroke={2} /></span>
                       <span className="school-origin-name">{item.school}</span>
                     </div>
                   </div>
@@ -1105,14 +1242,14 @@ function App() {
                     <div className="kindle-meta-row">
                       <span className="kindle-meta-tag">{item.meta}</span>
                       <div className="kindle-rating">
-                        <span className="star-icon">★</span>
+                        <span className="star-icon"><IconStarFilled size={12} /></span>
                         <span className="rating-val">{item.rating}</span>
                       </div>
                     </div>
                     <h3 className="kindle-title" title={item.title}>{item.title}</h3>
                     <p className="kindle-author">{item.school} · {item.location}</p>
                     <div className="followers-count-tag">
-                      <span>👥 {item.followers}</span>
+                      <span><IconUsers size={12} stroke={2} /> {item.followers}</span>
                       <span className="follower-active-dot" />
                     </div>
                   </div>
@@ -1134,7 +1271,10 @@ function App() {
                 <article className="kindle-book-card popular-item-card" key={item.id}>
                   <div className="kindle-thumbnail-wrapper">
                     <img className="book-cover" src={item.image} alt={item.title} />
-                    <span className="kindle-badge pop-trend-tag">{item.trendBadge}</span>
+                    <span className="kindle-badge pop-trend-tag">
+                      <IconTrendingUp size={10} stroke={2} />
+                      <span>{item.trendBadge}</span>
+                    </span>
                     <button type="button" className="save-book" aria-label={`Save ${item.title}`}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                         <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
@@ -1145,14 +1285,14 @@ function App() {
                     <div className="kindle-meta-row">
                       <span className="kindle-meta-tag">{item.meta}</span>
                       <div className="kindle-rating">
-                        <span className="star-icon">★</span>
+                        <span className="star-icon"><IconStarFilled size={12} /></span>
                         <span className="rating-val">{item.rating}</span>
                       </div>
                     </div>
                     <h3 className="kindle-title" title={item.title}>{item.title}</h3>
                     <p className="kindle-author">{item.author}</p>
                     <div className="pop-downloads-row">
-                      <span>⚡ {item.downloads}</span>
+                      <span className="pop-downloads-metric"><IconBolt size={12} stroke={2} /> {item.downloads}</span>
                       <span className="pop-reviews-count">({item.reviews})</span>
                     </div>
                   </div>
@@ -1185,7 +1325,7 @@ function App() {
                     <div className="kindle-meta-row">
                       <span className="kindle-meta-tag">{item.meta}</span>
                       <div className="kindle-rating">
-                        <span className="star-icon">★</span>
+                        <span className="star-icon"><IconStarFilled size={12} /></span>
                         <span className="rating-val">{item.rating}</span>
                       </div>
                     </div>
@@ -1241,14 +1381,15 @@ function App() {
                       <div className="kindle-meta-row">
                         <span className="kindle-meta-tag">{item.subject} · {item.level}</span>
                         <div className="kindle-rating">
-                          <span className="star-icon">★</span>
+                          <span className="star-icon"><IconStarFilled size={12} /></span>
                           <span className="rating-val">{item.rating}</span>
                         </div>
                       </div>
                       <h3 className="kindle-title" title={item.title}>{item.title}</h3>
                       <p className="kindle-author">{item.author}</p>
                       <div className="dept-curriculum-tag">
-                        <span>🎯 Form 3 &amp; 4 STEM Track</span>
+                        <IconTarget size={12} stroke={2} />
+                        <span>Form 3 &amp; 4 STEM Track</span>
                       </div>
                     </div>
                   </article>
@@ -1290,8 +1431,8 @@ function App() {
                     <h1>Library</h1>
                   </div>
                   <div className="user-actions">
-                    <div className="user-avatar">DW</div>
-                    <span className="user-name">Davis Workman</span>
+                    <div className="user-avatar">SKP</div>
+                    <span className="user-name">SAMUEL KP</span>
                     <button type="button" className="notification-button" aria-label="View notifications">
                       <span>Notifications</span>
                       <span className="notification-dot" aria-hidden="true" />
@@ -1576,7 +1717,7 @@ function App() {
                   </div>
                 </div>
                 <div className="discover-header-right">
-                  <div className="user-avatar">DW</div>
+                  <div className="user-avatar">SKP</div>
                   <button type="button" className="notification-button" aria-label="View notifications">
                     <IconBell size={16} stroke={2} />
                     <span>Notifications</span>
@@ -1607,28 +1748,28 @@ function App() {
                   {/* Post Creation Section */}
                   <div className="create-post-section">
                     <div className="create-post-header">
-                      <div className="user-avatar">DW</div>
+                      <div className="user-avatar">SKP</div>
                       <input 
                         type="text" 
-                        placeholder="What's on your mind, Davis?" 
+                        placeholder="What's on your mind, Samuel?"
                         className="create-post-input"
                       />
                     </div>
                     <div className="create-post-actions">
-                      <button className="create-post-action">
-                        <span>📷</span>
+                      <button className="create-post-action" type="button" aria-label="Add photo">
+                        <span><IconPhoto size={18} stroke={2} /></span>
                         <span>Photo</span>
                       </button>
-                      <button className="create-post-action">
-                        <span>📄</span>
+                      <button className="create-post-action" type="button" aria-label="Add document">
+                        <span><IconFileText size={18} stroke={2} /></span>
                         <span>Document</span>
                       </button>
-                      <button className="create-post-action">
-                        <span>🎥</span>
+                      <button className="create-post-action" type="button" aria-label="Add video">
+                        <span><IconVideo size={18} stroke={2} /></span>
                         <span>Video</span>
                       </button>
-                      <button className="create-post-action">
-                        <span>❓</span>
+                      <button className="create-post-action" type="button" aria-label="Ask a question">
+                        <span><IconHelpCircle size={18} stroke={2} /></span>
                         <span>Question</span>
                       </button>
                     </div>
@@ -1691,7 +1832,9 @@ function App() {
                               <div className="feed-resource-image">
                                 <img src={post.image} alt={post.title} />
                                 <div className="feed-video-play-overlay">
-                                  <div className="feed-play-button">▶</div>
+                                  <div className="feed-play-button" aria-label="Play video">
+                                    <IconPlayerPlay size={24} stroke={2.5} />
+                                  </div>
                                 </div>
                               </div>
                             </>
@@ -1705,17 +1848,17 @@ function App() {
                         </div>
 
                         <div className="feed-post-actions">
-                          <button type="button" className="feed-action-btn feed-like-btn">
-                            <span>👍</span>
+                          <button type="button" className="feed-action-btn feed-like-btn" aria-label="Like post">
+                            <span><IconThumbUp size={16} stroke={2} /></span>
                             <span>Like</span>
                           </button>
-                          <button type="button" className="feed-action-btn feed-comment-btn">
-                            <span>💬</span>
+                          <button type="button" className="feed-action-btn feed-comment-btn" aria-label="Comment on post">
+                            <span><IconMessageCircle size={16} stroke={2} /></span>
                             <span>Comment</span>
                           </button>
-                          <button type="button" className="feed-action-btn feed-share-btn">
-                            <span>📤</span>
-                            <span>Share</span>
+                          <button type="button" className="feed-action-btn feed-share-btn" aria-label="Repost post">
+                            <span><IconRepeat size={16} stroke={2} /></span>
+                            <span>Repost</span>
                           </button>
                         </div>
                       </article>
@@ -1827,6 +1970,10 @@ function App() {
               </div>
             </div>
           </div>
+        ) : currentPage === 'profile' ? (
+          <ProfilePage onOpenSettings={() => setCurrentPage('settings')} />
+        ) : currentPage === 'settings' ? (
+          <SettingsPage />
         ) : null}
       </main>
     </div>
