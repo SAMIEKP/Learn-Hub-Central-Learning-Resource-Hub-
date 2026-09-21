@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   IconHome,
   IconVideo,
@@ -811,12 +811,74 @@ function SettingToggle({ label, description, defaultChecked = true }) {
   return <label className="setting-toggle-row"><span><strong>{label}</strong>{description && <small>{description}</small>}</span><input type="checkbox" checked={checked} onChange={() => setChecked(!checked)} /><span className="toggle-control" aria-hidden="true"><span /></span></label>;
 }
 
+function HeaderActions() {
+  const headerActionsRef = useRef(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: 'New Biology notes uploaded', detail: 'Blantyre Secondary School · 12 min ago' },
+    { id: 2, title: 'Your question received an answer', detail: 'Photosynthesis · 1 hour ago' },
+    { id: 3, title: 'Past Paper collection updated', detail: 'Mathematics Form 4 · Yesterday' },
+  ]);
+  const unreadCount = notifications.length;
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (headerActionsRef.current && !headerActionsRef.current.contains(event.target)) {
+        setProfileOpen(false);
+        setNotificationsOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handleOutsideClick);
+    return () => document.removeEventListener('pointerdown', handleOutsideClick);
+  }, []);
+
+  const toggleProfile = () => {
+    setProfileOpen(!profileOpen);
+    setNotificationsOpen(false);
+  };
+
+  const toggleNotifications = () => {
+    setNotificationsOpen(!notificationsOpen);
+    setProfileOpen(false);
+  };
+
+  return <div className="user-actions" ref={headerActionsRef}>
+    <div className="header-profile-menu">
+      <button type="button" className="header-profile-trigger" aria-expanded={profileOpen} onClick={toggleProfile}>
+        <span className="user-avatar">SKP</span>
+        <span className="user-name">SAMUEL KP</span>
+      </button>
+      {profileOpen && <div className="header-popover profile-popover"><div className="popover-identity"><span className="user-avatar">SKP</span><span><strong>SAMUEL KP</strong><small>Student · Form 3</small></span></div><div className="popover-links"><a href="#profile">View profile</a><a href="#library">My library</a><a href="#settings">Settings</a></div><button type="button" className="popover-signout"><IconLogout size={15} /> Log out</button></div>}
+    </div>
+    <div className="header-notifications">
+      <button type="button" className="notification-button" aria-expanded={notificationsOpen} aria-label={`View ${unreadCount} notifications`} onClick={toggleNotifications}>
+        <span>Notifications</span>
+        {unreadCount > 0 && <span className="notification-count">{unreadCount}</span>}
+        <span className="notification-dot" aria-hidden="true" />
+      </button>
+      {notificationsOpen && <div className="header-popover notifications-popover"><div className="notifications-heading"><strong>Notifications</strong>{unreadCount > 0 && <button type="button" onClick={() => setNotifications([])}>Clear all</button>}</div>{notifications.length > 0 ? notifications.map((notification) => <div className="notification-item" key={notification.id}><span className="notification-item-dot" /><span><strong>{notification.title}</strong><small>{notification.detail}</small></span><button type="button" aria-label={`Clear ${notification.title}`} onClick={() => setNotifications(notifications.filter((item) => item.id !== notification.id))}>×</button></div>) : <p className="notifications-empty">You are all caught up.</p>}</div>}
+    </div>
+  </div>;
+}
+
 function SettingsPage() {
   const [activeSection, setActiveSection] = useState('account');
+  const [selectedTheme, setSelectedTheme] = useState('light');
   const selected = settingsSections.find(([id]) => id === activeSection);
   const SectionIcon = selected[3];
   return <div className="product-page settings-page">
-    <header className="product-page-header"><div><span className="eyebrow">Account controls</span><h1>Settings</h1><p>Shape how Learn Hub works for you.</p></div><div className="settings-status"><IconCheck size={15} /> All changes saved</div></header>
+    <header className="library-header settings-page-header">
+      <div className="library-header-content">
+        <div className="page-heading">
+          <h1>Settings</h1>
+        </div>
+        <HeaderActions />
+      </div>
+    </header>
+    <div className="settings-background settings-background-top" aria-hidden="true" />
+    <div className="settings-background settings-background-bottom" aria-hidden="true" />
     <div className="settings-layout">
       <nav className="settings-nav" aria-label="Settings sections"><span className="settings-nav-label">Manage Learn Hub</span>{settingsSections.map(([id, label, description, ItemIcon]) => <button key={id} type="button" className={`settings-nav-item ${activeSection === id ? 'active' : ''}`} onClick={() => setActiveSection(id)}><ItemIcon size={17} stroke={1.8} /><span><b>{label}</b><small>{description}</small></span><IconChevronRight size={15} /></button>)}<button type="button" className="settings-logout"><IconLogout size={17} /> Log out</button></nav>
       <section className="settings-detail" aria-labelledby="settings-detail-title"><div className="settings-detail-heading"><div className="settings-detail-icon"><SectionIcon size={20} /></div><div><span className="eyebrow">Settings</span><h2 id="settings-detail-title">{selected[1]}</h2><p>{selected[2]}</p></div></div>
@@ -826,7 +888,7 @@ function SettingsPage() {
         {activeSection === 'library' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Library preferences</h3><p>Make your study library behave the way you expect.</p></div></div><div className="select-row"><label>Default library view<select defaultValue="grid"><option value="grid">Grid</option><option value="list">List</option></select></label><label>Default sorting<select defaultValue="recent"><option value="recent">Recent activity</option><option value="title">Title</option><option value="author">Author</option></select></label></div><SettingToggle label="Automatically add opened resources to history" /><SettingToggle label="Show completed resources" /><SettingToggle label="Confirm before removing a resource" /><div className="subsection-heading">Downloads</div><SettingToggle label="Wi-Fi-only downloads" /><SettingToggle label="Ask before downloading large files" /><div className="storage-meter"><div><span>Storage used</span><strong>420 MB of 2 GB</strong></div><div className="meter-track"><span style={{ width: '21%' }} /></div><button type="button" className="text-button">Manage downloads <IconChevronRight size={15} /></button></div></div>}
         {activeSection === 'recommendations' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Recommendation sources</h3><p>Choose what Learn Hub can use to personalize your shelves.</p></div></div><SettingToggle label="My department" /><SettingToggle label="My class / Form" /><SettingToggle label="My school" /><SettingToggle label="My reading history" /><SettingToggle label="My likes and saved items" /><SettingToggle label="Popular resources" /><div className="recommendation-note"><IconCompass size={17} /><span>Recommendations may include “Recommended because you selected Science” or “New from your school.”</span></div><button type="button" className="danger-link">Reset recommendation history</button></div>}
         {activeSection === 'privacy' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Profile visibility</h3><p>Control who can discover your public learning identity.</p></div></div><div className="visibility-options"><label><input type="radio" name="visibility" defaultChecked /> <span><strong>My school</strong><small>Recommended for students</small></span></label><label><input type="radio" name="visibility" /> <span><strong>All approved Learn Hub users</strong><small>Your public profile can be viewed by approved members</small></span></label><label><input type="radio" name="visibility" /> <span><strong>Private</strong><small>Only you can see your profile activity</small></span></label></div><div className="subsection-heading">Activity privacy</div><SettingToggle label="Questions and answers" /><SettingToggle label="Liked resources" defaultChecked={false} /><SettingToggle label="Recently read and completed resources" defaultChecked={false} /><div className="privacy-callout"><IconLock size={16} /><span>Private notes, highlights, email, phone number, and reading history are private by default.</span></div></div>}
-        {activeSection === 'appearance' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Appearance and accessibility</h3><p>Comfortable reading for every study session.</p></div></div><div className="theme-options"><button type="button" className="theme-choice active"><span className="theme-swatch light" /> Light <IconCheck size={15} /></button><button type="button" className="theme-choice"><span className="theme-swatch dark" /> Dark</button><button type="button" className="theme-choice"><span className="theme-swatch system" /> System</button></div><SettingToggle label="Larger text" /><SettingToggle label="High contrast colors" /><SettingToggle label="Reduced motion" defaultChecked={false} /><SettingToggle label="Dyslexia-friendly font" defaultChecked={false} /><SettingToggle label="Prefer captions" /><SettingToggle label="Prefer transcripts" /></div>}
+        {activeSection === 'appearance' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Appearance and accessibility</h3><p>Comfortable reading for every study session.</p></div></div><div className="theme-selector" role="group" aria-label="Theme"><span className="theme-selector-label">Theme</span><div className="theme-options">{[['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([theme, label]) => <button key={theme} type="button" className={`theme-choice ${selectedTheme === theme ? 'active' : ''}`} aria-pressed={selectedTheme === theme} onClick={() => setSelectedTheme(theme)}><span className={`theme-swatch ${theme}`} /><span>{label}</span>{selectedTheme === theme && <IconCheck size={15} />}</button>)}</div></div><SettingToggle label="Larger text" /><SettingToggle label="High contrast colors" /><SettingToggle label="Reduced motion" defaultChecked={false} /><SettingToggle label="Dyslexia-friendly font" defaultChecked={false} /><SettingToggle label="Prefer captions" /><SettingToggle label="Prefer transcripts" /></div>}
         {activeSection === 'security' && <div className="settings-card settings-card-stack"><div className="security-status-row"><span className="security-check"><IconCheck size={15} /></span><div><strong>Email verified</strong><small>samuel.kp@example.com</small></div><b>Yes</b></div><div className="security-status-row"><span className="security-check"><IconCheck size={15} /></span><div><strong>Phone verified</strong><small>+265 888 204 118</small></div><b>Yes</b></div><div className="security-status-row"><span className="security-icon"><IconShieldCheck size={15} /></span><div><strong>Two-step verification</strong><small>Add another layer of protection</small></div><button type="button" className="outline-button">Set up</button></div><div className="security-summary"><span>Active devices <strong>2</strong></span><span>Last login <strong>Today, 14:20</strong></span></div><button type="button" className="danger-button">Sign out of all devices</button></div>}
         {activeSection === 'help' && <div className="settings-card settings-card-stack"><div className="help-row"><IconQuestionMark size={19} /><div><strong>Help center</strong><span>Answers about learning, publishing, and downloads</span></div><IconChevronRight size={16} /></div><div className="help-row"><IconMessageCircle2 size={19} /><div><strong>Report a technical problem</strong><span>Tell us what went wrong</span></div><IconChevronRight size={16} /></div><div className="help-row"><IconMail size={19} /><div><strong>Contact platform support</strong><span>support@learnhub.mw</span></div><IconChevronRight size={16} /></div><div className="link-row"><span>Terms of use</span><span>Privacy policy</span><span>Community guidelines</span></div></div>}
         {activeSection === 'about' && <div className="settings-card about-card"><div className="about-mark"><img src={logo} alt="" /></div><h3>Learn Hub</h3><p>A digital educational library for secondary schools in Malawi.</p><span className="version-label">Version 1.0.0 · Build 2026.09.20</span><div className="link-row"><span>Terms of use</span><span>Privacy policy</span><span>Licenses</span></div><button type="button" className="outline-button">Check for updates</button></div>}
@@ -873,20 +935,13 @@ function ProfilePage({ onOpenSettings }) {
         <div className="page-heading">
           <h1>Profile</h1>
         </div>
-        <div className="user-actions">
-          <div className="user-avatar">SKP</div>
-          <span className="user-name">SAMUEL KP</span>
-          <button type="button" className="notification-button" aria-label="View notifications">
-            <span>Notifications</span>
-            <span className="notification-dot" aria-hidden="true" />
-          </button>
-        </div>
+        <HeaderActions />
       </div>
     </header>
     <div className="profile-background profile-background-top" aria-hidden="true" />
     <div className="profile-background profile-background-bottom" aria-hidden="true" />
     <header className="profile-hero">
-      <div className="profile-hero-main">{renderAvatar('profile-avatar profile-avatar-hero')}<div><span className="eyebrow">My public profile</span><h1>{profileName}</h1><p className="profile-role">Student <span>·</span> Form 3</p><p className="profile-school"><IconSchool size={15} /> Blantyre Secondary School <span>·</span> Sciences &amp; Technology</p><p className="profile-bio">Curious learner building a stronger foundation in science, mathematics, and the ideas that connect them.</p><span className="visibility-indicator"><IconEye size={14} /> Visible to my school</span></div></div>
+      <div className="profile-hero-main">{renderAvatar('profile-avatar profile-avatar-hero')}<div><h1>{profileName}</h1><p className="profile-role">Student <span>·</span> Form 3</p><p className="profile-school"><IconSchool size={15} /> Blantyre Secondary School <span>·</span> Sciences &amp; Technology</p><p className="profile-bio">Curious learner building a stronger foundation in science, mathematics, and the ideas that connect them.</p><span className="visibility-indicator"><IconEye size={14} /> Visible to my school</span></div></div>
       <div className="profile-actions"><button type="button" className="outline-button" onClick={onOpenSettings}><IconAdjustments size={15} /> Settings</button><button type="button" className="primary-button" onClick={openEditor}><IconEdit size={15} /> Edit profile</button></div>
     </header>
     <nav className="profile-tabs" aria-label="Profile sections">{tabs.map((tab) => <button key={tab} type="button" className={activeTab === tab ? 'active' : ''} onClick={() => setActiveTab(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>)}</nav>
@@ -938,10 +993,6 @@ function App() {
             <IconCompass size={17} stroke={2} />
             <span>Discover</span>
           </a>
-          <a href="#notifications" className="sidebar-link">
-            <IconBell size={17} stroke={2} />
-            <span>Notifications</span>
-          </a>
           <a href="#profile" className={`sidebar-link ${currentPage === 'profile' ? 'active' : ''}`} onClick={() => setCurrentPage('profile')}>
             <IconUser size={17} stroke={2} />
             <span>Profile</span>
@@ -992,14 +1043,7 @@ function App() {
               <span className="search-baseline" aria-hidden="true" />
             </div>
           </div>
-          <div className="user-actions">
-            <div className="user-avatar">SKP</div>
-            <span className="user-name">SAMUEL KP</span>
-            <button type="button" className="notification-button" aria-label="View notifications">
-              <span>Notifications</span>
-              <span className="notification-dot" aria-hidden="true" />
-            </button>
-          </div>
+          <HeaderActions />
           </header>
         </div>
 
@@ -1430,14 +1474,7 @@ function App() {
                   <div className="page-heading">
                     <h1>Library</h1>
                   </div>
-                  <div className="user-actions">
-                    <div className="user-avatar">SKP</div>
-                    <span className="user-name">SAMUEL KP</span>
-                    <button type="button" className="notification-button" aria-label="View notifications">
-                      <span>Notifications</span>
-                      <span className="notification-dot" aria-hidden="true" />
-                    </button>
-                  </div>
+                  <HeaderActions />
                 </div>
               </header>
 
@@ -1717,12 +1754,7 @@ function App() {
                   </div>
                 </div>
                 <div className="discover-header-right">
-                  <div className="user-avatar">SKP</div>
-                  <button type="button" className="notification-button" aria-label="View notifications">
-                    <IconBell size={16} stroke={2} />
-                    <span>Notifications</span>
-                    <span className="notification-dot" aria-hidden="true" />
-                  </button>
+                  <HeaderActions />
                 </div>
               </div>
 
@@ -1740,6 +1772,9 @@ function App() {
                 </nav>
               </div>
             </header>
+
+            <div className="discover-background discover-background-top" aria-hidden="true" />
+            <div className="discover-background discover-background-bottom" aria-hidden="true" />
 
             <div className="discovery-bottom">
               <div className="discover-layout">
@@ -1981,4 +2016,3 @@ function App() {
 }
 
 export default App;
-
