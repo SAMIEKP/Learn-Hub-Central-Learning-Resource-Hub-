@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   IconHome,
@@ -43,6 +43,8 @@ import {
 } from '@tabler/icons-react';
 import './App.css';
 import logo from './logo.svg';
+import { useLocalStorageState } from './hooks/useLocalStorageState';
+import { useDialogAccessibility } from './hooks/useDialogAccessibility';
 
 const libraryItems = [
   {
@@ -926,6 +928,8 @@ function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defa
 function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
   const [activeSection, setActiveSection] = useState('account');
   const [selectedTheme, setSelectedTheme] = useState('light');
+  const profileDetails = readStoredValue('learnhub-profile-details', { name: 'SAMUEL KP', role: 'Student', form: 'Form 3', school: 'Blantyre Secondary School', department: 'Sciences & Technology', email: 'samuel.kp@example.com', phone: '+265 888 204 118', image: null });
+  const profileInitials = profileDetails.name.split(' ').map((part) => part[0]).join('').slice(0, 3);
   const selected = settingsSections.find(([id]) => id === activeSection);
   const SectionIcon = selected[3];
   return <div className="product-page settings-page">
@@ -934,7 +938,7 @@ function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
         <div className="page-heading">
           <h1>Settings</h1>
         </div>
-        <HeaderActions onNavigate={onNavigate} onAction={onAction} />
+        <HeaderActions onNavigate={onNavigate} onAction={onAction} user={{ ...defaultCurrentUser, name: profileDetails.name, initials: profileInitials, role: `${profileDetails.role} · ${profileDetails.form}`, school: profileDetails.school, image: profileDetails.image }} />
       </div>
     </header>
     <div className="settings-background settings-background-top" aria-hidden="true" />
@@ -1148,7 +1152,10 @@ function ProfilePage({ onOpenSettings }) {
   const [profileDetails, setProfileDetails] = useState(() => ({ ...profileDefaults, ...readStoredValue('learnhub-profile-details', {}) }));
   const [draftProfile, setDraftProfile] = useState(profileDetails);
   const [profileImageError, setProfileImageError] = useState('');
+  const [profileSaveMessage, setProfileSaveMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
+  const closeProfileEditor = useCallback(() => setIsEditing(false), []);
+  const profileDialogRef = useDialogAccessibility(isEditing, closeProfileEditor);
   const tabs = ['overview', 'questions', 'answers', 'library', 'activity'];
   const profileName = profileDetails.name;
   const profileImage = profileDetails.image;
@@ -1195,6 +1202,8 @@ function ProfilePage({ onOpenSettings }) {
     setProfileDetails(savedProfile);
     writeStoredValue('learnhub-profile-details', savedProfile);
     setIsEditing(false);
+    setProfileSaveMessage('Profile changes saved.');
+    window.setTimeout(() => setProfileSaveMessage(''), 2600);
   };
 
   const renderAvatar = (className) => profileImage
@@ -1217,6 +1226,7 @@ function ProfilePage({ onOpenSettings }) {
       <div className="profile-actions"><button type="button" className="outline-button" onClick={onOpenSettings}><IconAdjustments size={15} /> Settings</button><button type="button" className="primary-button" onClick={openEditor}><IconEdit size={15} /> Edit profile</button></div>
     </header>
     <nav className="profile-tabs" aria-label="Profile sections">{tabs.map((tab) => <button key={tab} type="button" className={activeTab === tab ? 'active' : ''} onClick={() => setActiveTab(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>)}</nav>
+    {profileSaveMessage && <div className="app-action-feedback" role="status">{profileSaveMessage}</div>}
     <div className="profile-content">
       {activeTab === 'overview' && <><div className="profile-stats"><div><strong>18</strong><span>Questions asked</span></div><div><strong>42</strong><span>Answers received</span></div><div><strong>7</strong><span>Resources completed</span></div><div><strong>3</strong><span>Saved collections</span></div></div><div className="profile-grid"><section className="profile-panel"><div className="panel-heading"><div><span className="eyebrow">Learning focus</span><h2>My departments</h2></div><IconBook2 size={18} /></div><div className="profile-chip-row"><span className="profile-chip primary">{profileDetails.department} <b>Primary</b></span></div><div className="panel-heading panel-heading-spaced"><div><span className="eyebrow">Subjects</span><h2>Preferred subjects</h2></div></div><div className="subject-list">{profileDetails.subjects.split(',').map((subject) => <span key={subject.trim()}>{subject.trim()}</span>)}</div></section><section className="profile-panel progress-panel"><div className="panel-heading"><div><span className="eyebrow">This term</span><h2>Learning progress</h2></div><IconAward size={18} /></div><div className="goal-ring"><strong>68%</strong><span>of your reading goal</span></div><div className="progress-track"><span style={{ width: '68%' }} /></div><p>12 of 18 planned resources completed this term.</p><button type="button" className="text-button">View activity <IconChevronRight size={15} /></button></section></div></>}
       {activeTab === 'questions' && <section className="profile-panel profile-list-panel"><div className="panel-heading"><div><span className="eyebrow">Public activity</span><h2>Questions asked</h2></div><span className="count-label">18 total</span></div><article className="question-row"><div><span className="profile-chip">Biology</span><h3>How does photosynthesis produce glucose?</h3><p>4 answers · 8 likes</p></div><span className="question-status answered">Answered</span></article><article className="question-row"><div><span className="profile-chip">Biology</span><h3>What is the difference between mitosis and meiosis?</h3><p>2 answers · 5 likes</p></div><span className="question-status open">Open</span></article></section>}
@@ -1224,7 +1234,7 @@ function ProfilePage({ onOpenSettings }) {
       {activeTab === 'library' && <section className="profile-panel profile-list-panel"><div className="panel-heading"><div><span className="eyebrow">Shared learning</span><h2>Saved collections</h2></div></div><div className="collection-list"><div><span className="collection-icon"><IconBook size={18} /></span><span><strong>Chemistry Study Pack</strong><small>12 resources · Updated 15 Sep 2026</small></span><IconChevronRight size={16} /></div><div><span className="collection-icon coral"><IconBook size={18} /></span><span><strong>Mathematics Past Papers</strong><small>15 resources · Updated 5 Sep 2026</small></span><IconChevronRight size={16} /></div></div></section>}
       {activeTab === 'activity' && <section className="profile-panel empty-profile-panel"><IconEye size={26} /><h2>Activity is private</h2><p>Recent reading, notes, and highlights are only visible to you.</p><button type="button" className="outline-button" onClick={onOpenSettings}>Review privacy settings</button></section>}
     </div>
-    {isEditing && <div className="profile-modal-backdrop" role="presentation"><form className="profile-editor" onSubmit={saveProfile}><div className="profile-editor-heading"><div><span className="eyebrow">Profile details</span><h2>Edit profile</h2></div><button type="button" className="modal-close" aria-label="Close profile editor" onClick={() => setIsEditing(false)}>×</button></div><div className="profile-editor-avatar">{draftProfile.image ? <img className="profile-image" src={draftProfile.image} alt="Profile preview" /> : <div className="profile-avatar profile-avatar-hero">{initials}</div>}<label className="upload-button"><IconPhoto size={15} /> Change picture<input type="file" accept="image/*" onChange={handleImageChange} /></label></div><div className="profile-editor-grid"><label className="profile-field">Full name<input type="text" value={draftProfile.name} onChange={(event) => setDraftProfile({ ...draftProfile, name: event.target.value })} required /></label><label className="profile-field">Role<input type="text" value={draftProfile.role} onChange={(event) => setDraftProfile({ ...draftProfile, role: event.target.value })} required /></label><label className="profile-field">Class / Form<select value={draftProfile.form} onChange={(event) => setDraftProfile({ ...draftProfile, form: event.target.value })}><option>Form 1</option><option>Form 2</option><option>Form 3</option><option>Form 4</option></select></label><label className="profile-field">School<input type="text" value={draftProfile.school} onChange={(event) => setDraftProfile({ ...draftProfile, school: event.target.value })} required /></label><label className="profile-field">Department<input type="text" value={draftProfile.department} onChange={(event) => setDraftProfile({ ...draftProfile, department: event.target.value })} required /></label><label className="profile-field">Visibility<select value={draftProfile.visibility} onChange={(event) => setDraftProfile({ ...draftProfile, visibility: event.target.value })}><option>My school</option><option>My class</option><option>Everyone</option><option>Only me</option></select></label><label className="profile-field">Email address<input type="email" value={draftProfile.email} onChange={(event) => setDraftProfile({ ...draftProfile, email: event.target.value })} required /></label><label className="profile-field">Phone number<input type="tel" value={draftProfile.phone} onChange={(event) => setDraftProfile({ ...draftProfile, phone: event.target.value })} /></label></div><label className="profile-field">Preferred subjects<input type="text" value={draftProfile.subjects} onChange={(event) => setDraftProfile({ ...draftProfile, subjects: event.target.value })} placeholder="Biology, Chemistry, Mathematics" /></label><label className="profile-field">Bio<textarea value={draftProfile.bio} onChange={(event) => setDraftProfile({ ...draftProfile, bio: event.target.value })} maxLength={240} /></label><p className="profile-editor-note">Your profile details are shown according to your visibility setting.</p><div className="profile-editor-actions"><button type="button" className="outline-button" onClick={() => setIsEditing(false)}>Cancel</button><button type="submit" className="primary-button">Save changes</button></div></form></div>}
+    {isEditing && <div className="profile-modal-backdrop" role="presentation"><form ref={profileDialogRef} role="dialog" aria-modal="true" aria-labelledby="profile-editor-title" className="profile-editor" onSubmit={saveProfile}><div className="profile-editor-heading"><div><span className="eyebrow">Profile details</span><h2 id="profile-editor-title">Edit profile</h2></div><button type="button" className="modal-close" aria-label="Close profile editor" onClick={closeProfileEditor}>×</button></div><div className="profile-editor-avatar">{draftProfile.image ? <img className="profile-image" src={draftProfile.image} alt="Profile preview" /> : <div className="profile-avatar profile-avatar-hero">{initials}</div>}<label className="upload-button"><IconPhoto size={15} /> Change picture<input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} /></label></div>{profileImageError && <p className="form-inline-error" role="alert">{profileImageError}</p>}<div className="profile-editor-grid"><label className="profile-field">Full name<input type="text" value={draftProfile.name} onChange={(event) => setDraftProfile({ ...draftProfile, name: event.target.value })} required /></label><label className="profile-field">Role<input type="text" value={draftProfile.role} onChange={(event) => setDraftProfile({ ...draftProfile, role: event.target.value })} required /></label><label className="profile-field">Class / Form<select value={draftProfile.form} onChange={(event) => setDraftProfile({ ...draftProfile, form: event.target.value })}><option>Form 1</option><option>Form 2</option><option>Form 3</option><option>Form 4</option></select></label><label className="profile-field">School<input type="text" value={draftProfile.school} onChange={(event) => setDraftProfile({ ...draftProfile, school: event.target.value })} required /></label><label className="profile-field">Department<input type="text" value={draftProfile.department} onChange={(event) => setDraftProfile({ ...draftProfile, department: event.target.value })} required /></label><label className="profile-field">Visibility<select value={draftProfile.visibility} onChange={(event) => setDraftProfile({ ...draftProfile, visibility: event.target.value })}><option>My school</option><option>My class</option><option>Everyone</option><option>Only me</option></select></label><label className="profile-field">Email address<input type="email" value={draftProfile.email} onChange={(event) => setDraftProfile({ ...draftProfile, email: event.target.value })} required /></label><label className="profile-field">Phone number<input type="tel" value={draftProfile.phone} onChange={(event) => setDraftProfile({ ...draftProfile, phone: event.target.value })} /></label></div><label className="profile-field">Preferred subjects<input type="text" value={draftProfile.subjects} onChange={(event) => setDraftProfile({ ...draftProfile, subjects: event.target.value })} placeholder="Biology, Chemistry, Mathematics" /></label><label className="profile-field">Bio<textarea value={draftProfile.bio} onChange={(event) => setDraftProfile({ ...draftProfile, bio: event.target.value })} maxLength={240} /></label><p className="profile-editor-note">Your profile details are shown according to your visibility setting.</p><div className="profile-editor-actions"><button type="button" className="outline-button" onClick={closeProfileEditor}>Cancel</button><button type="submit" className="primary-button">Save changes</button></div></form></div>}
   </div>;
 }
 
@@ -1232,14 +1242,17 @@ function App() {
   const [activeTab, setActiveTab] = useState('all');
   const [isHeaderShrunk, setIsHeaderShrunk] = useState(false);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All STEM');
-  const [currentPage, setCurrentPage] = useState('home');
+  const [currentPage, setCurrentPage] = useState(() => {
+    const route = window.location.hash.slice(1);
+    return ['home', 'library', 'discover', 'profile', 'settings'].includes(route) ? route : 'home';
+  });
   const [selectedResource, setSelectedResource] = useState(null);
   const [resourceReturnPage, setResourceReturnPage] = useState('home');
   const [resourceCollection, setResourceCollection] = useState(null);
   const [actionMessage, setActionMessage] = useState('');
   const [libraryResourceKeys, setLibraryResourceKeys] = useState(() => new Set(readStoredValue('learnhub-library-keys', [...libraryItems, ...savedResources].map(resourceKey))));
   const [downloadedResourceKeys, setDownloadedResourceKeys] = useState(() => new Set(readStoredValue('learnhub-downloaded-keys', libraryItems.map(resourceKey))));
-  const [postedResources, setPostedResources] = useState(() => readStoredValue('learnhub-posted-resources', []));
+  const [postedResources, setPostedResources] = useLocalStorageState('learnhub-posted-resources', []);
   const [feedPosts, setFeedPosts] = useState(discoveryPosts);
   const [discoverDraft, setDiscoverDraft] = useState('');
   const [discoverImage, setDiscoverImage] = useState('');
@@ -1255,7 +1268,7 @@ function App() {
   const [discoverImageCaption, setDiscoverImageCaption] = useState('');
   const [discoverValidationErrors, setDiscoverValidationErrors] = useState([]);
   const [isDiscoverPreviewOpen, setIsDiscoverPreviewOpen] = useState(false);
-  const [discoverDraftPosts, setDiscoverDraftPosts] = useState(() => readStoredValue('learnhub-discover-drafts', []));
+  const [, setDiscoverDraftPosts] = useLocalStorageState('learnhub-discover-drafts', []);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [isPostImageDragging, setIsPostImageDragging] = useState(false);
   const [discoverFeedFilter, setDiscoverFeedFilter] = useState('all');
@@ -1273,7 +1286,7 @@ function App() {
   const [editingPostDraft, setEditingPostDraft] = useState('');
   const [hiddenPostIds, setHiddenPostIds] = useState([]);
   const [reportedPostIds, setReportedPostIds] = useState([]);
-  const [postReports, setPostReports] = useState(() => readStoredValue('learnhub-post-reports', []));
+  const [, setPostReports] = useLocalStorageState('learnhub-post-reports', []);
   const [reportDialogPost, setReportDialogPost] = useState(null);
   const [reportCategory, setReportCategory] = useState('spam');
   const [pendingFeedAction, setPendingFeedAction] = useState(null);
@@ -1296,18 +1309,6 @@ function App() {
   }, [downloadedResourceKeys]);
 
   useEffect(() => {
-    writeStoredValue('learnhub-posted-resources', postedResources);
-  }, [postedResources]);
-
-  useEffect(() => {
-    writeStoredValue('learnhub-discover-drafts', discoverDraftPosts);
-  }, [discoverDraftPosts]);
-
-  useEffect(() => {
-    writeStoredValue('learnhub-post-reports', postReports);
-  }, [postReports]);
-
-  useEffect(() => {
     writeStoredValue('learnhub-discover-composer-draft', { content: discoverDraft, postType: discoverPostType, subject: discoverSubject, department: discoverDepartment, classForm: discoverClass, topic: discoverTopic, relatedResource: discoverRelatedResource, imageCaption: discoverImageCaption, imageAlt: discoverImageAlt });
   }, [discoverDraft, discoverPostType, discoverSubject, discoverDepartment, discoverClass, discoverTopic, discoverRelatedResource, discoverImageCaption, discoverImageAlt]);
 
@@ -1320,8 +1321,22 @@ function App() {
   const navigateTo = (page) => {
     if (['home', 'library', 'discover', 'profile', 'settings'].includes(page)) {
       setCurrentPage(page);
+      window.history.pushState({ page }, '', `#${page}`);
     }
   };
+
+  useEffect(() => {
+    const handleRouteChange = () => {
+      const nextPage = window.location.hash.slice(1) || 'home';
+      if (['home', 'library', 'discover', 'profile', 'settings'].includes(nextPage)) setCurrentPage(nextPage);
+    };
+    window.addEventListener('popstate', handleRouteChange);
+    window.addEventListener('hashchange', handleRouteChange);
+    return () => {
+      window.removeEventListener('popstate', handleRouteChange);
+      window.removeEventListener('hashchange', handleRouteChange);
+    };
+  }, []);
 
   const openResource = (resource) => {
     setSelectedResource(resource);
@@ -1469,11 +1484,18 @@ function App() {
     setIsPostImageDragging(false);
   };
 
-  const closeCreatePost = () => {
+  const closeCreatePost = useCallback(() => {
     setIsCreatePostOpen(false);
     setIsDiscoverPreviewOpen(false);
     setIsPostImageDragging(false);
-  };
+  }, []);
+
+  const createPostDialogRef = useDialogAccessibility(isCreatePostOpen, closeCreatePost);
+  const closeFeedDialogs = useCallback(() => {
+    setPendingFeedAction(null);
+    setReportDialogPost(null);
+  }, []);
+  const feedDialogRef = useDialogAccessibility(Boolean(pendingFeedAction || reportDialogPost), closeFeedDialogs);
 
   const openCreatePost = () => {
     const savedComposer = readStoredValue('learnhub-discover-composer-draft', null);
@@ -1495,7 +1517,6 @@ function App() {
   useEffect(() => {
     const handleDocumentKeyDown = (event) => {
       if (event.key !== 'Escape') return;
-      if (isCreatePostOpen) closeCreatePost();
       setPostMenuOpen(null);
       setReportDialogPost(null);
       setPendingFeedAction(null);
@@ -2625,9 +2646,9 @@ function App() {
                   {feedLoading && <div className="feed-loading" role="status">Saving your change…</div>}
 
                   {isCreatePostOpen && createPortal(<div className="discover-post-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCreatePost(); }}>
-                    <form className="discover-post-modal" onSubmit={createFeedPost}>
+                    <form ref={createPostDialogRef} role="dialog" aria-modal="true" aria-labelledby="create-post-title" className="discover-post-modal" onSubmit={createFeedPost}>
                       <div className="discover-post-modal-header">
-                        <h2>Create post</h2>
+                        <h2 id="create-post-title">Create post</h2>
                         <button type="button" className="modal-close" aria-label="Close create post" onClick={closeCreatePost}>×</button>
                       </div>
                       <div className="discover-post-author">
@@ -2661,7 +2682,7 @@ function App() {
                           </div>
                           {discoverImage && <div className="discover-post-fields-grid"><label className="discover-post-field"><span>Image description</span><input type="text" value={discoverImageAlt} onChange={(event) => setDiscoverImageAlt(event.target.value)} placeholder="Describe the image for accessibility" /></label>{discoverPostType === 'image' && <label className="discover-post-field"><span>Image caption</span><input type="text" value={discoverImageCaption} onChange={(event) => setDiscoverImageCaption(event.target.value)} placeholder="Add a caption (optional)" /></label>}</div>}
                         </>}
-                        {discoverValidationErrors.length > 0 && <div className="discover-post-errors" role="alert">{discoverValidationErrors.map((error) => <span key={error}>{error}</span>)}</div>}
+                        {discoverValidationErrors.length > 0 && <div className="discover-post-errors" role="alert" aria-live="assertive"><strong>Check your post</strong>{discoverValidationErrors.map((error) => <span key={error}>{error}</span>)}</div>}
                         <div className="discover-post-modal-footer"><button type="button" className="text-button" onClick={saveDiscoverDraft}>Save draft</button><span>{discoverImageName || 'Images are optional'}</span><div className="discover-post-footer-actions"><button type="button" className="outline-button" onClick={closeCreatePost}>Cancel</button><button type="button" className="outline-button" onClick={() => { if (!validateDiscoverPost().length) setIsDiscoverPreviewOpen(true); }}>Preview</button><button type="submit" className="primary-button" disabled={feedLoading}>Post</button></div></div>
                       </> : <>
                         <div className="discover-post-preview-card"><span className="eyebrow">Post preview</span><div className="discover-post-preview-meta"><div className="user-avatar">{currentUser.initials}</div><div><strong>{currentUser.name}</strong><span>{discoverPostType === 'question' ? 'Question' : 'Image post'}</span></div></div><span className="feed-subject-tag">{discoverSubject || 'General'}</span><p>{discoverDraft}</p>{discoverImage && <img src={discoverImage} alt={discoverImageAlt || 'Post preview'} />}{discoverImageCaption && <small>{discoverImageCaption}</small>}</div>
@@ -2933,13 +2954,13 @@ function App() {
           <SettingsPage onNavigate={navigateTo} onAction={showAction} />
         ) : null}
       </main>
-      {(pendingFeedAction || reportDialogPost) && createPortal(<div className="feed-confirmation-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) { setPendingFeedAction(null); setReportDialogPost(null); } }}>
-        {reportDialogPost ? <form className="feed-confirmation-dialog" onSubmit={submitPostReport}>
-          <div className="feed-confirmation-heading"><div><span className="eyebrow">Safety review</span><h2>Report post</h2></div><button type="button" className="modal-close" aria-label="Close report dialog" onClick={() => setReportDialogPost(null)}>×</button></div>
+      {(pendingFeedAction || reportDialogPost) && createPortal(<div className="feed-confirmation-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeFeedDialogs(); }}>
+        {reportDialogPost ? <form ref={feedDialogRef} role="dialog" aria-modal="true" aria-labelledby="report-post-title" className="feed-confirmation-dialog" onSubmit={submitPostReport}>
+          <div className="feed-confirmation-heading"><div><span className="eyebrow">Safety review</span><h2 id="report-post-title">Report post</h2></div><button type="button" className="modal-close" aria-label="Close report dialog" onClick={closeFeedDialogs}>×</button></div>
           <p>Tell us why you are reporting this post. The report will be recorded as pending for moderation review.</p>
           <label className="discover-post-field"><span>Report category</span><select value={reportCategory} onChange={(event) => setReportCategory(event.target.value)}><option value="spam">Spam or misleading content</option><option value="harassment">Harassment or bullying</option><option value="inappropriate">Inappropriate content</option><option value="copyright">Copyright concern</option><option value="other">Something else</option></select></label>
           <div className="feed-confirmation-actions"><button type="button" className="outline-button" onClick={() => setReportDialogPost(null)}>Cancel</button><button type="submit" className="primary-button">Submit report</button></div>
-        </form> : <div className="feed-confirmation-dialog"><div className="feed-confirmation-heading"><div><span className="eyebrow">Confirm action</span><h2>{pendingFeedAction?.type === 'delete' ? 'Delete post?' : pendingFeedAction?.type === 'delete-comment' ? 'Delete comment?' : pendingFeedAction?.type === 'delete-reply' ? 'Delete reply?' : 'Hide post?'}</h2></div><button type="button" className="modal-close" aria-label="Close confirmation" onClick={() => setPendingFeedAction(null)}>×</button></div><p>{pendingFeedAction?.type === 'delete' ? 'This post will be permanently removed from your Discover feed.' : pendingFeedAction?.type === 'delete-comment' ? 'This comment will be permanently removed from the discussion.' : pendingFeedAction?.type === 'delete-reply' ? 'This reply will be permanently removed from the discussion.' : 'This post will be removed from your feed.'}</p><div className="feed-confirmation-actions"><button type="button" className="outline-button" onClick={() => setPendingFeedAction(null)}>Cancel</button><button type="button" className="primary-button" onClick={() => { if (pendingFeedAction?.type === 'delete') confirmDeletePost(pendingFeedAction.post); else if (pendingFeedAction?.type === 'delete-comment') confirmDeleteComment(pendingFeedAction.postId, pendingFeedAction.commentId); else if (pendingFeedAction?.type === 'delete-reply') confirmDeleteReply(pendingFeedAction.postId, pendingFeedAction.commentId, pendingFeedAction.replyId); else confirmHidePost(pendingFeedAction.postId); }}>{pendingFeedAction?.type.startsWith('delete') ? 'Delete' : 'Hide post'}</button></div></div>}
+        </form> : <div ref={feedDialogRef} role="dialog" aria-modal="true" aria-labelledby="feed-confirmation-title" className="feed-confirmation-dialog"><div className="feed-confirmation-heading"><div><span className="eyebrow">Confirm action</span><h2 id="feed-confirmation-title">{pendingFeedAction?.type === 'delete' ? 'Delete post?' : pendingFeedAction?.type === 'delete-comment' ? 'Delete comment?' : pendingFeedAction?.type === 'delete-reply' ? 'Delete reply?' : 'Hide post?'}</h2></div><button type="button" className="modal-close" aria-label="Close confirmation" onClick={closeFeedDialogs}>×</button></div><p>{pendingFeedAction?.type === 'delete' ? 'This post will be permanently removed from your Discover feed.' : pendingFeedAction?.type === 'delete-comment' ? 'This comment will be permanently removed from the discussion.' : pendingFeedAction?.type === 'delete-reply' ? 'This reply will be permanently removed from the discussion.' : 'This post will be removed from your feed.'}</p><div className="feed-confirmation-actions"><button type="button" className="outline-button" onClick={closeFeedDialogs}>Cancel</button><button type="button" className="primary-button" onClick={() => { if (pendingFeedAction?.type === 'delete') confirmDeletePost(pendingFeedAction.post); else if (pendingFeedAction?.type === 'delete-comment') confirmDeleteComment(pendingFeedAction.postId, pendingFeedAction.commentId); else if (pendingFeedAction?.type === 'delete-reply') confirmDeleteReply(pendingFeedAction.postId, pendingFeedAction.commentId, pendingFeedAction.replyId); else confirmHidePost(pendingFeedAction.postId); }}>{pendingFeedAction?.type.startsWith('delete') ? 'Delete' : 'Hide post'}</button></div></div>}
       </div>, document.body)}
       {actionMessage && <div className="app-action-feedback" role="status">{actionMessage}</div>}
     </div>
