@@ -43,6 +43,11 @@ import './App.css';
 import logo from './logo.svg';
 import { useLocalStorageState } from './hooks/useLocalStorageState';
 import { useDialogAccessibility } from './hooks/useDialogAccessibility';
+import { useSetStorageState } from './hooks/useSetStorageState';
+import { useAppNavigation } from './hooks/useAppNavigation';
+import SettingToggle from './components/SettingToggle';
+import { readStoredValue, writeStoredValue } from './utils/storage';
+import { compressImageFile } from './utils/image';
 
 const libraryItems = [
   {
@@ -847,28 +852,6 @@ const resourceByTitle = (title) => continueReading.find((resource) => resource.t
 const resourceKey = (resource) => String(resource.id || resource.title);
 const defaultCurrentUser = { id: 'user-samuel', name: 'SAMUEL KP', initials: 'SKP', role: 'Student · Form 3', school: 'Blantyre Secondary School' };
 
-const readStoredValue = (key, fallback) => {
-  try {
-    const storedValue = window.localStorage.getItem(key);
-    return storedValue ? JSON.parse(storedValue) : fallback;
-  } catch (error) {
-    return fallback;
-  }
-};
-
-const writeStoredValue = (key, value) => {
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    // Storage can be unavailable in private browsing or restricted embeds.
-  }
-};
-
-function SettingToggle({ label, description, defaultChecked = true }) {
-  const [checked, setChecked] = useState(defaultChecked);
-  return <label className="setting-toggle-row"><span><strong>{label}</strong>{description && <small>{description}</small>}</span><input type="checkbox" checked={checked} onChange={() => setChecked(!checked)} /><span className="toggle-control" aria-hidden="true"><span /></span></label>;
-}
-
 function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defaultCurrentUser }) {
   const headerActionsRef = useRef(null);
   const storedProfile = readStoredValue('learnhub-profile-details', {});
@@ -912,9 +895,10 @@ function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defa
       </button>
       {profileOpen && <div className="header-popover profile-popover"><div className="popover-identity">{profileImage ? <img className="user-avatar header-user-image" src={profileImage} alt={`${user.name} profile`} /> : <span className="user-avatar">{user.initials}</span>}<span><strong>{user.name}</strong><small>{user.role}</small></span></div><div className="popover-links"><a href="#profile" onClick={(event) => { event.preventDefault(); onNavigate('profile'); setProfileOpen(false); }}>View profile</a><a href="#library" onClick={(event) => { event.preventDefault(); onNavigate('library'); setProfileOpen(false); }}>My library</a><a href="#settings" onClick={(event) => { event.preventDefault(); onNavigate('settings'); setProfileOpen(false); }}>Settings</a></div><button type="button" className="popover-signout" onClick={() => onAction('Log out is not available in this demo yet.')}><IconLogout size={15} /> Log out</button></div>}
     </div>
+    <button type="button" className="mobile-settings-trigger" aria-label="Open settings" onClick={() => onNavigate('settings')}><IconSettings size={20} /></button>
     <div className="header-notifications">
       <button type="button" className="notification-button" aria-expanded={notificationsOpen} aria-label={`View ${unreadCount} notifications`} onClick={toggleNotifications}>
-        <span>Notifications</span>
+        <span className="notification-label">Notifications</span>
         {unreadCount > 0 && <span className="notification-count">{unreadCount}</span>}
         <span className="notification-dot" aria-hidden="true" />
       </button>
@@ -1214,7 +1198,7 @@ function ProfilePage({ onOpenSettings }) {
         <div className="page-heading">
           <h1>Profile</h1>
         </div>
-        <HeaderActions user={{ ...defaultCurrentUser, name: profileDetails.name, initials, role: `${profileDetails.role} · ${profileDetails.form}`, school: profileDetails.school, image: profileDetails.image }} />
+        <HeaderActions onNavigate={onOpenSettings} user={{ ...defaultCurrentUser, name: profileDetails.name, initials, role: `${profileDetails.role} · ${profileDetails.form}`, school: profileDetails.school, image: profileDetails.image }} />
       </div>
     </header>
     <div className="profile-background profile-background-top" aria-hidden="true" />
@@ -1240,18 +1224,15 @@ function App() {
   const [activeTab, setActiveTab] = useState('all');
   const [isHeaderShrunk, setIsHeaderShrunk] = useState(false);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All STEM');
-  const [currentPage, setCurrentPage] = useState(() => {
-    const route = window.location.hash.slice(1);
-    return ['home', 'library', 'discover', 'profile', 'settings'].includes(route) ? route : 'home';
-  });
+  const { currentPage, setCurrentPage, navigateTo } = useAppNavigation();
   const [selectedResource, setSelectedResource] = useState(null);
   const [resourceReturnPage, setResourceReturnPage] = useState('home');
   const [resourceCollection, setResourceCollection] = useState(null);
   const [actionMessage, setActionMessage] = useState('');
-  const [libraryResourceKeys, setLibraryResourceKeys] = useState(() => new Set(readStoredValue('learnhub-library-keys', [...libraryItems, ...savedResources].map(resourceKey))));
-  const [downloadedResourceKeys, setDownloadedResourceKeys] = useState(() => new Set(readStoredValue('learnhub-downloaded-keys', libraryItems.map(resourceKey))));
+  const [libraryResourceKeys, setLibraryResourceKeys] = useSetStorageState('learnhub-library-keys', [...libraryItems, ...savedResources].map(resourceKey));
+  const [downloadedResourceKeys, setDownloadedResourceKeys] = useSetStorageState('learnhub-downloaded-keys', libraryItems.map(resourceKey));
   const [postedResources, setPostedResources] = useLocalStorageState('learnhub-posted-resources', []);
-  const [feedPosts, setFeedPosts] = useState(discoveryPosts);
+  const [feedPosts, setFeedPosts] = useLocalStorageState('learnhub-feed-posts', discoveryPosts);
   const [discoverDraft, setDiscoverDraft] = useState('');
   const [discoverImage, setDiscoverImage] = useState('');
   const [discoverImageName, setDiscoverImageName] = useState('');
@@ -1271,8 +1252,8 @@ function App() {
   const [isPostImageDragging, setIsPostImageDragging] = useState(false);
   const [discoverFeedFilter, setDiscoverFeedFilter] = useState('all');
   const [discoverSearch, setDiscoverSearch] = useState('');
-  const [feedInteractions, setFeedInteractions] = useState({});
-  const [postComments, setPostComments] = useState(initialPostComments);
+  const [feedInteractions, setFeedInteractions] = useLocalStorageState('learnhub-feed-interactions', {});
+  const [postComments, setPostComments] = useLocalStorageState('learnhub-post-comments', initialPostComments);
   const [commentDrafts, setCommentDrafts] = useState({});
   const [replyDrafts, setReplyDrafts] = useState({});
   const [openCommentPosts, setOpenCommentPosts] = useState({});
@@ -1282,8 +1263,8 @@ function App() {
   const [postMenuOpen, setPostMenuOpen] = useState(null);
   const [editingPostId, setEditingPostId] = useState(null);
   const [editingPostDraft, setEditingPostDraft] = useState('');
-  const [hiddenPostIds, setHiddenPostIds] = useState([]);
-  const [reportedPostIds, setReportedPostIds] = useState([]);
+  const [hiddenPostIds, setHiddenPostIds] = useLocalStorageState('learnhub-hidden-post-ids', []);
+  const [reportedPostIds, setReportedPostIds] = useLocalStorageState('learnhub-reported-post-ids', []);
   const [, setPostReports] = useLocalStorageState('learnhub-post-reports', []);
   const [reportDialogPost, setReportDialogPost] = useState(null);
   const [reportCategory, setReportCategory] = useState('spam');
@@ -1298,43 +1279,27 @@ function App() {
   const feedLoadMoreRef = useRef(null);
   const actionTimerRef = useRef(null);
 
-  useEffect(() => {
-    writeStoredValue('learnhub-library-keys', [...libraryResourceKeys]);
-  }, [libraryResourceKeys]);
+  const recordActivity = (type, detail) => {
+    const activity = readStoredValue('learnhub-activity-history', []);
+    writeStoredValue('learnhub-activity-history', [{ id: `activity-${Date.now()}`, type, detail, createdDate: new Date().toISOString() }, ...activity].slice(0, 100));
+  };
+
+  const recordAnalyticsEvent = (eventName) => {
+    const analytics = readStoredValue('learnhub-analytics-events', {});
+    writeStoredValue('learnhub-analytics-events', { ...analytics, [eventName]: (analytics[eventName] || 0) + 1 });
+  };
 
   useEffect(() => {
-    writeStoredValue('learnhub-downloaded-keys', [...downloadedResourceKeys]);
-  }, [downloadedResourceKeys]);
-
-  useEffect(() => {
-    writeStoredValue('learnhub-discover-composer-draft', { content: discoverDraft, postType: discoverPostType, subject: discoverSubject, department: discoverDepartment, classForm: discoverClass, topic: discoverTopic, relatedResource: discoverRelatedResource, imageCaption: discoverImageCaption, imageAlt: discoverImageAlt });
-  }, [discoverDraft, discoverPostType, discoverSubject, discoverDepartment, discoverClass, discoverTopic, discoverRelatedResource, discoverImageCaption, discoverImageAlt]);
+    writeStoredValue('learnhub-discover-composer-draft', { content: discoverDraft, image: discoverImage, imageName: discoverImageName, imageMeta: discoverImageMeta, postType: discoverPostType, subject: discoverSubject, department: discoverDepartment, classForm: discoverClass, topic: discoverTopic, relatedResource: discoverRelatedResource, imageCaption: discoverImageCaption, imageAlt: discoverImageAlt });
+  }, [discoverDraft, discoverImage, discoverImageName, discoverImageMeta, discoverPostType, discoverSubject, discoverDepartment, discoverClass, discoverTopic, discoverRelatedResource, discoverImageCaption, discoverImageAlt]);
 
   const showAction = (message) => {
     setActionMessage(message);
+    recordActivity('ui-action', message);
+    recordAnalyticsEvent('ui_action');
     window.clearTimeout(actionTimerRef.current);
     actionTimerRef.current = window.setTimeout(() => setActionMessage(''), 2600);
   };
-
-  const navigateTo = (page) => {
-    if (['home', 'library', 'discover', 'profile', 'settings'].includes(page)) {
-      setCurrentPage(page);
-      window.history.pushState({ page }, '', `#${page}`);
-    }
-  };
-
-  useEffect(() => {
-    const handleRouteChange = () => {
-      const nextPage = window.location.hash.slice(1) || 'home';
-      if (['home', 'library', 'discover', 'profile', 'settings'].includes(nextPage)) setCurrentPage(nextPage);
-    };
-    window.addEventListener('popstate', handleRouteChange);
-    window.addEventListener('hashchange', handleRouteChange);
-    return () => {
-      window.removeEventListener('popstate', handleRouteChange);
-      window.removeEventListener('hashchange', handleRouteChange);
-    };
-  }, []);
 
   const openResource = (resource) => {
     setSelectedResource(resource);
@@ -1472,14 +1437,15 @@ function App() {
       setDiscoverValidationErrors(['This image is larger than the allowed size.']);
       return;
     }
-    setDiscoverImage(URL.createObjectURL(file));
     setDiscoverImageName(file.name);
-    setDiscoverImageMeta({ type: file.type, size: file.size, width: 0, height: 0 });
-    const image = new Image();
-    image.onload = () => setDiscoverImageMeta((currentMeta) => ({ ...currentMeta, width: image.naturalWidth, height: image.naturalHeight }));
-    image.src = URL.createObjectURL(file);
     setDiscoverValidationErrors([]);
     setIsPostImageDragging(false);
+    compressImageFile(file)
+      .then(({ dataUrl, width, height }) => {
+        setDiscoverImage(dataUrl);
+        setDiscoverImageMeta({ type: 'image/jpeg', size: Math.round(dataUrl.length * 0.75), width, height });
+      })
+      .catch((error) => setDiscoverValidationErrors([error.message || 'The image could not be processed.']));
   };
 
   const closeCreatePost = useCallback(() => {
@@ -1497,7 +1463,7 @@ function App() {
 
   const openCreatePost = () => {
     const savedComposer = readStoredValue('learnhub-discover-composer-draft', null);
-    if (!discoverDraft && savedComposer?.content) {
+    if (!discoverDraft && (savedComposer?.content || savedComposer?.image)) {
       setDiscoverDraft(savedComposer.content || '');
       setDiscoverPostType(savedComposer.postType || 'question');
       setDiscoverSubject(savedComposer.subject || '');
@@ -1505,6 +1471,9 @@ function App() {
       setDiscoverClass(savedComposer.classForm || '');
       setDiscoverTopic(savedComposer.topic || '');
       setDiscoverRelatedResource(savedComposer.relatedResource || '');
+      setDiscoverImage(savedComposer.image || '');
+      setDiscoverImageName(savedComposer.imageName || '');
+      setDiscoverImageMeta(savedComposer.imageMeta || { type: '', size: 0, width: 0, height: 0 });
       setDiscoverImageCaption(savedComposer.imageCaption || '');
       setDiscoverImageAlt(savedComposer.imageAlt || '');
       showAction('Draft restored.');
@@ -1817,7 +1786,7 @@ function App() {
   const displayLibraryItems = [...libraryItems, ...postedResources];
 
   return (
-    <div className="app-shell" onClick={handleInteractiveClick}>
+    <div className={`app-shell${currentPage === 'reader' ? ' is-reading' : ''}`} onClick={handleInteractiveClick}>
       <aside className="sidebar">
         <a href="/" className="brand-link">
           <img src={logo} alt="Learn Hub Logo" className="brand-logo" />
@@ -1888,7 +1857,7 @@ function App() {
               <span className="search-baseline" aria-hidden="true" />
             </div>
           </div>
-          <HeaderActions />
+        <HeaderActions onNavigate={navigateTo} />
           </header>
         </div>
 
@@ -2319,7 +2288,7 @@ function App() {
                   <div className="page-heading">
                     <h1>Library</h1>
                   </div>
-                  <HeaderActions />
+                  <HeaderActions onNavigate={navigateTo} />
                 </div>
               </header>
 
@@ -2599,7 +2568,7 @@ function App() {
                   </form>
                 </div>
                 <div className="discover-header-right">
-                  <HeaderActions user={currentUser} />
+                  <HeaderActions onNavigate={navigateTo} user={currentUser} />
                 </div>
               </div>
 
@@ -2960,6 +2929,13 @@ function App() {
           <div className="feed-confirmation-actions"><button type="button" className="outline-button" onClick={() => setReportDialogPost(null)}>Cancel</button><button type="submit" className="primary-button">Submit report</button></div>
         </form> : <div ref={feedDialogRef} role="dialog" aria-modal="true" aria-labelledby="feed-confirmation-title" className="feed-confirmation-dialog"><div className="feed-confirmation-heading"><div><span className="eyebrow">Confirm action</span><h2 id="feed-confirmation-title">{pendingFeedAction?.type === 'delete' ? 'Delete post?' : pendingFeedAction?.type === 'delete-comment' ? 'Delete comment?' : pendingFeedAction?.type === 'delete-reply' ? 'Delete reply?' : 'Hide post?'}</h2></div><button type="button" className="modal-close" aria-label="Close confirmation" onClick={closeFeedDialogs}>×</button></div><p>{pendingFeedAction?.type === 'delete' ? 'This post will be permanently removed from your Discover feed.' : pendingFeedAction?.type === 'delete-comment' ? 'This comment will be permanently removed from the discussion.' : pendingFeedAction?.type === 'delete-reply' ? 'This reply will be permanently removed from the discussion.' : 'This post will be removed from your feed.'}</p><div className="feed-confirmation-actions"><button type="button" className="outline-button" onClick={closeFeedDialogs}>Cancel</button><button type="button" className="primary-button" onClick={() => { if (pendingFeedAction?.type === 'delete') confirmDeletePost(pendingFeedAction.post); else if (pendingFeedAction?.type === 'delete-comment') confirmDeleteComment(pendingFeedAction.postId, pendingFeedAction.commentId); else if (pendingFeedAction?.type === 'delete-reply') confirmDeleteReply(pendingFeedAction.postId, pendingFeedAction.commentId, pendingFeedAction.replyId); else confirmHidePost(pendingFeedAction.postId); }}>{pendingFeedAction?.type.startsWith('delete') ? 'Delete' : 'Hide post'}</button></div></div>}
       </div>, document.body)}
+      {currentPage !== 'reader' && <nav className="mobile-bottom-nav" aria-label="Mobile navigation">
+        <button type="button" className={currentPage === 'home' ? 'active' : ''} onClick={() => navigateTo('home')}><IconHome size={20} /><span>Home</span></button>
+        <button type="button" className={currentPage === 'library' ? 'active' : ''} onClick={() => navigateTo('library')}><IconBook size={20} /><span>Library</span></button>
+        <button type="button" className={currentPage === 'discover' ? 'active' : ''} onClick={() => navigateTo('discover')}><IconCompass size={20} /><span>Discover</span></button>
+        <button type="button" onClick={() => showAction('Notifications are available from the header.')}><IconBell size={20} /><span>Alerts</span></button>
+        <button type="button" className={currentPage === 'profile' ? 'active' : ''} onClick={() => navigateTo('profile')}><IconUser size={20} /><span>Profile</span></button>
+      </nav>}
       {actionMessage && <div className="app-action-feedback" role="status">{actionMessage}</div>}
     </div>
   );

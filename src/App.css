@@ -143,7 +143,88 @@ button, a {
 }
 
 @media (max-width: 650px) {
-  .book-details-page > .resource-detail-header { height: auto; min-height: 70px; margin-bottom: 24px; padding: 20px; }
+  .library-header,
+  .topbar,
+  .discover-header {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .library-header-content,
+  .discover-header-top {
+    gap: 12px;
+  }
+
+  .library-header .page-heading h1,
+  .settings-page-header .page-heading h1,
+  .profile-page-header .page-heading h1,
+  .discover-title {
+    font-size: 24px;
+    line-height: 1.1;
+  }
+
+  .header-profile-menu {
+    display: none;
+  }
+
+  .mobile-settings-trigger {
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: var(--green);
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .mobile-settings-trigger:focus-visible,
+  .mobile-settings-trigger:hover {
+    background: var(--green-soft);
+    outline: 2px solid transparent;
+  }
+
+  .notification-button {
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .notification-label {
+    display: none;
+  }
+
+  .header-notifications,
+  .user-actions {
+    gap: 6px;
+  }
+}
+
+.mobile-settings-trigger {
+  display: none;
+}
+
+@media (max-width: 650px) {
+  .book-details-page > .resource-detail-header,
+  .publish-book-page > .resource-detail-header,
+  .resource-reader-page > .resource-detail-header {
+    padding: 16px;
+  }
+
+  .mobile-settings-trigger {
+    display: inline-flex;
+  }
+
+  .book-details-page > .resource-detail-header {
+    height: auto;
+    min-height: 70px;
+    margin-bottom: 24px;
+    padding: 20px;
+  }
 }
 .book-detail-hero { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 34px; padding: 28px; border: 1px solid var(--line); border-radius: 16px; background: #fff; box-shadow: 0 10px 25px rgba(0,0,0,.05); }
 .book-detail-cover { position: relative; height: 390px; overflow: hidden; border-radius: 10px; background: #edebe4; }.book-detail-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }.book-detail-cover span { position: absolute; top: 14px; left: 14px; padding: 6px 9px; border-radius: 5px; color: #fff; background: var(--coral); font-size: 9px; font-weight: 700; text-transform: uppercase; }
@@ -4207,4 +4288,641 @@ button, a {
 @media (max-width: 650px) {
   .book-details-page { padding-bottom: 60px; }
   .book-details-page > .resource-detail-header { height: auto; min-height: 70px; margin-bottom: 24px; padding: 20px; }
+}
+
+/* Wide-screen layout: keep content readable and centered on 2K/4K displays. */
+@media (min-width: 1600px) {
+  :root {
+    --wide-content-max: 1680px;
+    --wide-page-gutter: clamp(54px, 4vw, 96px);
+  }
+
+  .library-header-content,
+  .settings-page-header .library-header-content,
+  .profile-page-header .library-header-content,
+  .book-details-page > .resource-detail-header .library-header-content,
+  .resource-reader-page > .resource-detail-header .library-header-content,
+  .publish-book-page > .resource-detail-header .library-header-content {
+    width: min(100%, var(--wide-content-max));
+    margin-inline: auto;
+  }
+
+  .topbar,
+  .discovery-content,
+  .library-page .discovery-content {
+    padding-right: max(var(--wide-page-gutter), calc((100vw - var(--wide-content-max)) / 2));
+    padding-left: max(var(--wide-page-gutter), calc((100vw - var(--wide-content-max)) / 2));
+  }
+
+  .discover-header {
+    padding-right: max(var(--wide-page-gutter), calc((100vw - var(--wide-content-max)) / 2));
+    padding-left: max(var(--wide-page-gutter), calc((100vw - var(--wide-content-max)) / 2));
+  }
+
+  .discover-layout {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    width: min(100%, var(--wide-content-max));
+    max-width: var(--wide-content-max);
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .resource-list-content,
+  .resource-detail-content,
+  .resource-reader-content,
+  .book-details-content,
+  .book-detail-hero,
+  .book-details-grid,
+  .book-related-section,
+  .book-feedback-card,
+  .publish-layout {
+    width: min(calc(100% - (var(--wide-page-gutter) * 2)), var(--wide-content-max));
+    max-width: var(--wide-content-max);
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .settings-page > .settings-layout,
+  .profile-page > .profile-hero,
+  .profile-page > .profile-tabs,
+  .profile-page > .profile-content {
+    width: min(calc(100% - (var(--wide-page-gutter) * 2)), var(--wide-content-max));
+    max-width: var(--wide-content-max);
+  }
+
+  .settings-layout {
+    grid-template-columns: 300px minmax(0, 1fr);
+    max-width: var(--wide-content-max);
+    gap: 40px;
+  }
+
+  .profile-grid,
+  .book-details-grid {
+    gap: 28px;
+  }
+}
+
+@media (min-width: 2560px) {
+  .library-grid,
+  .recommendation-shelf {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+
+  .category-shelf {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .continue-reading-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .discover-layout {
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 36px;
+  }
+}
+
+/* Phone layout: keep every page inside the viewport and stack dense desktop regions. */
+@media (max-width: 650px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  .app-shell {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
+  .sidebar {
+    overflow: hidden;
+  }
+
+  .sidebar-nav {
+    width: 100%;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .sidebar-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .topbar {
+    display: block;
+    height: auto;
+    min-height: 0;
+  }
+
+  .topbar .header-main,
+  .topbar .header-search-row,
+  .topbar .book-search {
+    width: 100%;
+    max-width: none;
+  }
+
+  .topbar .user-actions {
+    justify-content: flex-end;
+    margin-top: 12px;
+  }
+
+  .discover-header {
+    overflow: hidden;
+  }
+
+  .discover-header-top {
+    align-items: stretch;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .discover-header-left,
+  .discover-header-center,
+  .discover-header-right {
+    min-width: 0;
+  }
+
+  .discover-header-left {
+    flex: 1 1 auto;
+  }
+
+  .discover-header-center {
+    order: 3;
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .discover-search-bar {
+    max-width: none;
+  }
+
+  .discover-header-right {
+    flex: 0 0 auto;
+  }
+
+  .discover-header-bottom,
+  .discover-nav {
+    width: 100%;
+  }
+
+  .discover-nav {
+    justify-content: space-around;
+    gap: 8px;
+    padding-right: 0;
+    padding-left: 0;
+  }
+
+  .discover-nav-item {
+    width: auto;
+    min-width: 0;
+    flex: 1 1 0;
+  }
+
+  .discover-layout {
+    width: 100%;
+    min-width: 0;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .discover-main-feed,
+  .feed-post,
+  .create-post-section {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .feed-post-header,
+  .feed-post-stats,
+  .feed-post-actions {
+    min-width: 0;
+  }
+
+  .feed-post-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .feed-action-btn {
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .feed-comment-bubble,
+  .feed-reply-composer,
+  .feed-inline-edit {
+    max-width: 100%;
+  }
+
+  .feed-inline-edit input,
+  .feed-reply-composer input {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .product-page {
+    padding: 24px 16px 60px;
+  }
+
+  .product-page-header,
+  .profile-hero {
+    flex-direction: column;
+    gap: 18px;
+    margin-bottom: 24px;
+  }
+
+  .profile-hero-main,
+  .profile-actions {
+    width: 100%;
+  }
+
+  .profile-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .resource-detail-card,
+  .resource-reader-shell,
+  .book-detail-hero,
+  .book-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .resource-detail-cover,
+  .resource-video-player,
+  .book-detail-cover,
+  .resource-reader-cover {
+    min-height: 260px;
+    max-height: 330px;
+  }
+
+  .resource-detail-cover img,
+  .book-detail-cover img,
+  .resource-reader-cover img {
+    min-height: 260px;
+  }
+
+  .resource-detail-facts,
+  .book-information-list {
+    grid-template-columns: 1fr;
+  }
+
+  .resource-reader-paper {
+    min-height: 260px;
+    padding: 24px 18px;
+  }
+
+  .book-feedback-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .settings-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-nav {
+    position: static;
+    height: auto;
+    max-height: none;
+  }
+
+  .profile-tabs {
+    max-width: 100%;
+    margin-right: 0;
+    margin-left: 0;
+  }
+
+  .profile-content,
+  .settings-detail {
+    min-width: 0;
+  }
+
+  .discover-post-footer-actions,
+  .profile-editor-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .discover-post-footer-actions > button,
+  .profile-editor-actions > button {
+    flex: 1 1 120px;
+  }
+}
+
+@media (max-width: 480px) {
+  .library-grid,
+  .recommendation-shelf,
+  .category-shelf,
+  .continue-reading-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .discover-title {
+    font-size: 21px;
+  }
+
+  .header-profile-trigger,
+  .notification-button {
+    padding-right: 6px;
+    padding-left: 6px;
+  }
+
+  .feed-post-actions {
+    gap: 3px;
+  }
+
+  .feed-action-btn {
+    padding-right: 3px;
+    padding-left: 3px;
+    font-size: 10px;
+  }
+
+  .profile-editor {
+    padding: 20px 16px;
+  }
+}
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 650px) {
+  .app-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  .discovery-page {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  .settings-page,
+  .settings-detail,
+  .settings-layout {
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .settings-detail {
+    padding-bottom: 12px;
+  }
+
+  .settings-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 22px;
+    padding: 8px;
+    overflow: visible;
+  }
+
+  .settings-nav-item {
+    min-height: 56px;
+  }
+
+  .settings-nav-item small,
+  .settings-nav-item > svg:last-child {
+    display: block;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 110;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-height: 68px;
+    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
+    border-top: 1px solid var(--line);
+    background: rgba(255, 255, 255, 0.97);
+    box-shadow: 0 -8px 24px rgba(35, 43, 39, 0.08);
+    backdrop-filter: blur(14px);
+  }
+
+  .mobile-bottom-nav button {
+    display: inline-flex;
+    min-width: 0;
+    min-height: 56px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 3px;
+    border: 0;
+    border-radius: 10px;
+    color: var(--muted);
+    background: transparent;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .mobile-bottom-nav button svg {
+    flex-shrink: 0;
+  }
+
+  .mobile-bottom-nav button.active,
+  .mobile-bottom-nav button:focus-visible {
+    color: var(--green);
+    background: var(--green-soft);
+    outline: 2px solid transparent;
+  }
+
+  .discovery-page,
+  .product-page {
+    padding-bottom: 96px;
+  }
+
+  .app-shell.is-reading .discovery-page {
+    padding-bottom: 0;
+  }
+
+  .app-action-feedback {
+    right: 16px;
+    bottom: 86px;
+    left: 16px;
+    max-width: none;
+    text-align: center;
+  }
+
+  .discover-header,
+  .library-header,
+  .profile-page-header,
+  .settings-page-header {
+    position: sticky;
+    top: 0;
+    z-index: 25;
+  }
+
+  input,
+  select,
+  textarea {
+    min-height: 48px;
+  }
+
+  .primary-button,
+  .outline-button,
+  .search-submit-btn,
+  .library-action-btn,
+  .resource-detail-actions button,
+  .book-primary-actions button {
+    min-height: 44px;
+  }
+
+  .book-detail-cover,
+  .resource-detail-cover,
+  .resource-reader-cover {
+    width: min(100%, 190px);
+    margin-right: auto;
+    margin-left: auto;
+  }
+
+  .book-primary-actions {
+    width: 100%;
+  }
+
+  .book-primary-actions .primary-button {
+    width: 100%;
+  }
+
+  .discover-post-modal .modal-close,
+  .profile-editor .modal-close,
+  .feed-confirmation-dialog .modal-close {
+    width: 44px;
+    height: 44px;
+  }
+
+  .settings-nav-item {
+    min-height: 56px;
+  }
+
+  .recommendation-shelf {
+    display: flex;
+    grid-template-columns: none;
+    gap: 12px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .recommendation-shelf::-webkit-scrollbar {
+    display: none;
+  }
+
+  .recommendation-shelf > * {
+    min-width: 172px;
+    scroll-snap-align: start;
+  }
+}
+
+@media (min-width: 360px) and (max-width: 599px) {
+  .library-grid,
+  .category-shelf {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .library-item-card:has(.library-type-badge.paper),
+  .library-item-card:has(.library-type-badge.past-paper) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 359px) {
+  .library-grid,
+  .category-shelf {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-bottom-nav {
+    padding-right: 3px;
+    padding-left: 3px;
+  }
+
+  .mobile-bottom-nav button {
+    font-size: 9px;
+  }
+}
+
+/* Final mobile header arrangement: navigation belongs in the bottom bar. */
+@media (max-width: 650px) {
+  .sidebar {
+    display: none;
+  }
+
+  .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: start;
+    column-gap: 12px;
+    row-gap: 12px;
+  }
+
+  .topbar .header-main {
+    display: contents;
+  }
+
+  .topbar .page-heading {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .topbar .user-actions {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    margin-top: 0;
+  }
+
+  .topbar .header-search-row {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .discover-header-top {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    align-items: start;
+    column-gap: 12px;
+    row-gap: 12px;
+  }
+
+  .discover-header-left {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .discover-header-right {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .discover-header-center {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    order: initial;
+    width: 100%;
+  }
+
+  .discover-feed-wrapper .discover-header {
+    position: sticky;
+    top: 0;
+  }
 }
