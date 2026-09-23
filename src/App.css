@@ -13,6 +13,8 @@
   --blue-soft: #e5f1ff;
   --purple-soft: #f4ebff;
   --gold: #f4b400;
+  --mobile-top-bar-height: 64px;
+  --mobile-bottom-nav-height: 68px;
 }
 
 * {
@@ -205,6 +207,10 @@ button, a {
 }
 
 .mobile-settings-trigger {
+  display: none;
+}
+
+.mobile-settings-back {
   display: none;
 }
 
@@ -1018,6 +1024,9 @@ button, a {
   border-radius: 12px;
   background: var(--paper);
   box-shadow: 0 10px 24px rgba(73, 73, 62, 0.07);
+  transition: min-height 300ms cubic-bezier(0.4, 0, 0.2, 1),
+              padding 300ms cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 300ms ease;
 }
 
 .header-search-row .book-search {
@@ -1078,6 +1087,12 @@ button, a {
   background: #0c3932;
   transform: translateY(-1px);
   box-shadow: 0 5px 12px rgba(22, 75, 66, 0.35);
+}
+
+.book-search .search-submit-btn {
+  min-width: 44px;
+  padding-right: 12px;
+  padding-left: 12px;
 }
 
 .user-actions {
@@ -1355,7 +1370,7 @@ button, a {
 
 /* Library page specific content padding */
 .library-page .discovery-content {
-  padding: 8px 54px 80px;
+  padding: 16px 54px 80px;
 }
 
 /* Library page section spacing */
@@ -2168,6 +2183,10 @@ button, a {
   width: 100%;
 }
 
+.library-page > .library-header .library-header-content {
+  transform: translateY(14px);
+}
+
 .library-header .page-heading {
   margin: 0;
   max-height: 100px;
@@ -2181,7 +2200,7 @@ button, a {
   margin: 0;
   color: #101010;
   font-family: 'Ubuntu', sans-serif;
-  font-size: clamp(28px, 3.5vw, 40px);
+  font-size: clamp(36px, 4.2vw, 50px);
   line-height: 1.05;
   letter-spacing: -0.04em;
 }
@@ -2194,6 +2213,12 @@ button, a {
   color: var(--ink);
   font-size: 11px;
   font-weight: 600;
+}
+
+/* Match the Home header's vertical component position. */
+.library-page > .library-header {
+  padding-top: 20px;
+  padding-bottom: 18px;
 }
 
 .library-tabs-bar {
@@ -4652,6 +4677,36 @@ button, a {
 }
 
 @media (max-width: 650px) {
+  /* Keep one predictable scroll owner on phones: the main page surface. */
+  .app-shell {
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .discovery-page {
+    height: 100dvh;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  .library-page,
+  .discover-feed-wrapper:not(.is-modal-open) {
+    height: auto;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: visible;
+  }
+
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    margin: 0;
+  }
+
   .app-shell {
     height: auto;
     min-height: 100dvh;
@@ -4674,8 +4729,57 @@ button, a {
     overflow: visible;
   }
 
+  .settings-layout.is-mobile-section-open .settings-nav {
+    display: none;
+  }
+
+  .settings-layout:not(.is-mobile-section-open) .settings-detail {
+    display: none;
+  }
+
+  .settings-layout.is-mobile-section-open .settings-detail {
+    display: block;
+  }
+
+  .mobile-settings-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-height: 44px;
+    margin: -4px 0 12px;
+    padding: 0;
+    border: 0;
+    color: var(--green);
+    background: transparent;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .mobile-settings-back svg {
+    transform: rotate(180deg);
+  }
+
   .settings-detail {
     padding-bottom: 12px;
+  }
+
+  .profile-page-header,
+  .settings-page-header,
+  .resource-detail-header {
+    position: sticky;
+    top: 0;
+  }
+
+  .library-header,
+  .discover-header {
+    min-height: calc(var(--mobile-top-bar-height) + env(safe-area-inset-top, 0px));
+    padding-top: max(12px, env(safe-area-inset-top, 0px));
+  }
+
+  .library-header-content,
+  .discover-header-top {
+    min-height: 44px;
   }
 
   .settings-nav {
@@ -4704,8 +4808,8 @@ button, a {
     z-index: 110;
     display: grid;
     grid-template-columns: repeat(5, minmax(0, 1fr));
-    min-height: 68px;
-    padding: 6px 8px max(6px, env(safe-area-inset-bottom));
+    min-height: calc(var(--mobile-bottom-nav-height) + env(safe-area-inset-bottom, 0px));
+    padding: 6px 8px env(safe-area-inset-bottom, 0px);
     border-top: 1px solid var(--line);
     background: rgba(255, 255, 255, 0.97);
     box-shadow: 0 -8px 24px rgba(35, 43, 39, 0.08);
@@ -4743,7 +4847,7 @@ button, a {
 
   .discovery-page,
   .product-page {
-    padding-bottom: 96px;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
   }
 
   .app-shell.is-reading .discovery-page {
@@ -4809,6 +4913,30 @@ button, a {
     min-height: 56px;
   }
 
+  .profile-modal-backdrop,
+  .feed-confirmation-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .profile-editor,
+  .feed-confirmation-dialog {
+    width: 100%;
+    max-height: 100dvh;
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 22px 22px 0 0;
+  }
+
+  .profile-editor {
+    max-height: 100dvh;
+    min-height: 100dvh;
+    border-radius: 0;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  }
+
   .recommendation-shelf {
     display: flex;
     grid-template-columns: none;
@@ -4826,6 +4954,38 @@ button, a {
   .recommendation-shelf > * {
     min-width: 172px;
     scroll-snap-align: start;
+  }
+}
+
+@media (max-width: 650px) {
+  .settings-nav-item,
+  .library-item-card,
+  .resource-list-item,
+  .feed-post,
+  .create-post-action,
+  .discover-recommendation,
+  .mobile-bottom-nav button {
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 140ms ease, background-color 140ms ease, opacity 140ms ease;
+  }
+
+  .settings-nav-item:active,
+  .library-item-card:active,
+  .resource-list-item:active,
+  .feed-post:active,
+  .create-post-action:active,
+  .discover-recommendation:active,
+  .mobile-bottom-nav button:active {
+    transform: scale(0.985);
+    opacity: 0.92;
+  }
+
+  .settings-nav-item {
+    border-radius: 12px;
+  }
+
+  .settings-nav-item:active {
+    background: rgba(22, 75, 66, 0.06);
   }
 }
 
@@ -4924,5 +5084,219 @@ button, a {
   .discover-feed-wrapper .discover-header {
     position: sticky;
     top: 0;
+  }
+}
+
+/* Mobile scrolling: keep the viewport shell fixed and let the page surface scroll. */
+@media (max-width: 650px) {
+  html,
+  body,
+  #root {
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+  }
+
+  .app-shell {
+    display: flex;
+    height: 100dvh;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  .discovery-page {
+    min-height: 0;
+    height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-padding-top: var(--mobile-top-bar-height);
+  }
+
+  /* These pages are rendered inside discovery-page, so they must not create a
+     second scroll surface that makes their sticky headers move with the page. */
+  .library-page,
+  .discover-feed-wrapper,
+  .product-page {
+    height: auto;
+    min-height: 100%;
+    overflow-x: visible;
+    overflow-y: visible;
+  }
+
+  .discover-feed-wrapper.is-modal-open {
+    overflow: visible;
+  }
+
+  .topbar,
+  .library-header,
+  .discover-header,
+  .profile-page-header,
+  .settings-page-header,
+  .resource-detail-header {
+    position: sticky;
+    top: 0;
+  }
+}
+
+/* The Home header must not be constrained by a fixed-height sticky parent. */
+.discovery-top {
+  position: sticky;
+  top: 0;
+  height: 220px;
+  min-height: 80px;
+  z-index: 25;
+  overflow-anchor: none;
+  transition: height 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.discovery-top.is-compact {
+  height: 80px;
+}
+
+.discovery-top .topbar {
+  position: relative;
+  top: auto;
+}
+
+/* Match the desktop compact header on phones: search moves into the top-left
+   row beside the account actions instead of keeping the expanded layout. */
+@media (max-width: 650px) {
+  .topbar:not(.is-compact) .book-search {
+    min-height: 44px;
+  }
+
+  .topbar.is-compact {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: 1fr;
+    align-items: center;
+    column-gap: 8px;
+    height: 80px;
+    min-height: 80px;
+    padding: 10px 16px;
+  }
+
+  .topbar.is-compact .header-main {
+    display: block;
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .topbar.is-compact .page-heading {
+    display: none;
+  }
+
+  .topbar.is-compact .header-search-row {
+    display: flex;
+    min-width: 0;
+    width: 100%;
+    margin-top: 0;
+  }
+
+  .topbar.is-compact .book-search {
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    min-height: 38px;
+    padding: 3px 4px 3px 9px;
+  }
+
+  .topbar.is-compact .book-search select {
+    width: 68px;
+    min-width: 0;
+    font-size: 10px;
+  }
+
+  .topbar.is-compact .search-divider {
+    margin-right: 4px;
+    margin-left: 4px;
+  }
+
+  .topbar.is-compact .book-search input {
+    min-width: 0;
+    font-size: 11px;
+  }
+
+  .topbar.is-compact .book-search button,
+  .topbar.is-compact .search-submit-btn {
+    min-width: 38px;
+    min-height: 30px;
+    padding: 6px;
+    font-size: 10px;
+  }
+
+  .topbar.is-compact .search-baseline {
+    display: none;
+  }
+
+  .topbar.is-compact .user-actions {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    min-width: 0;
+    margin-top: 0;
+  }
+
+  .topbar.is-compact .book-search select {
+    flex: 0 1 68px;
+  }
+
+  .topbar.is-compact .book-search input {
+    flex: 1 1 0;
+    width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .topbar.is-compact .book-search button,
+  .topbar.is-compact .search-submit-btn {
+    flex: 0 0 38px;
+  }
+
+  .topbar:not(.is-compact) .book-search .search-submit-btn {
+    min-width: 76px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+}
+
+/* Keep Library gutters in sync with the responsive Home gutters. */
+@media (max-width: 900px) {
+  .library-page .discovery-content {
+    padding-right: 32px;
+    padding-left: 32px;
+  }
+}
+
+@media (max-width: 650px) {
+  .library-page .discovery-content {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+
+  .library-page > .library-header {
+    padding-right: 20px;
+    padding-left: 20px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  .library-page > .library-header .page-heading h1 {
+    font-size: 36px;
+    line-height: 1.05;
+  }
+}
+
+@media (min-width: 651px) and (max-width: 900px) {
+  .library-page > .library-header {
+    padding-right: 32px;
+    padding-left: 32px;
   }
 }

@@ -909,11 +909,16 @@ function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defa
 
 function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
   const [activeSection, setActiveSection] = useState('account');
+  const [mobileSectionOpen, setMobileSectionOpen] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState('light');
   const profileDetails = readStoredValue('learnhub-profile-details', { name: 'SAMUEL KP', role: 'Student', form: 'Form 3', school: 'Blantyre Secondary School', department: 'Sciences & Technology', email: 'samuel.kp@example.com', phone: '+265 888 204 118', image: null });
   const profileInitials = profileDetails.name.split(' ').map((part) => part[0]).join('').slice(0, 3);
   const selected = settingsSections.find(([id]) => id === activeSection);
   const SectionIcon = selected[3];
+  const selectSettingsSection = (section) => {
+    setActiveSection(section);
+    setMobileSectionOpen(true);
+  };
   return <div className="product-page settings-page">
     <header className="library-header settings-page-header">
       <div className="library-header-content">
@@ -925,9 +930,9 @@ function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
     </header>
     <div className="settings-background settings-background-top" aria-hidden="true" />
     <div className="settings-background settings-background-bottom" aria-hidden="true" />
-    <div className="settings-layout">
-      <nav className="settings-nav" aria-label="Settings sections"><span className="settings-nav-label">Manage Learn Hub</span>{settingsSections.map(([id, label, description, ItemIcon]) => <button key={id} type="button" className={`settings-nav-item ${activeSection === id ? 'active' : ''}`} onClick={() => setActiveSection(id)}><ItemIcon size={17} stroke={1.8} /><span><b>{label}</b><small>{description}</small></span><IconChevronRight size={15} /></button>)}<button type="button" className="settings-logout" onClick={() => onAction('Log out is not available in this demo yet.')}><IconLogout size={17} /> Log out</button></nav>
-      <section className="settings-detail" aria-labelledby="settings-detail-title"><div className="settings-detail-heading"><div className="settings-detail-icon"><SectionIcon size={20} /></div><div><span className="eyebrow">Settings</span><h2 id="settings-detail-title">{selected[1]}</h2><p>{selected[2]}</p></div></div>
+    <div className={`settings-layout${mobileSectionOpen ? ' is-mobile-section-open' : ''}`}>
+      <nav className="settings-nav" aria-label="Settings sections"><span className="settings-nav-label">Manage Learn Hub</span>{settingsSections.map(([id, label, description, ItemIcon]) => <button key={id} type="button" className={`settings-nav-item ${activeSection === id ? 'active' : ''}`} onClick={() => selectSettingsSection(id)}><ItemIcon size={17} stroke={1.8} /><span><b>{label}</b><small>{description}</small></span><IconChevronRight size={15} /></button>)}<button type="button" className="settings-logout" onClick={() => onAction('Log out is not available in this demo yet.')}><IconLogout size={17} /> Log out</button></nav>
+      <section className={`settings-detail${mobileSectionOpen ? ' is-mobile-section-open' : ''}`} aria-labelledby="settings-detail-title"><button type="button" className="mobile-settings-back" onClick={() => setMobileSectionOpen(false)}><IconChevronRight size={16} /> <span>Settings</span></button><div className="settings-detail-heading"><div className="settings-detail-icon"><SectionIcon size={20} /></div><div><span className="eyebrow">Settings</span><h2 id="settings-detail-title">{selected[1]}</h2><p>{selected[2]}</p></div></div>
         {activeSection === 'account' && <><div className="settings-card account-summary-card"><div className="profile-avatar large">SKP</div><div className="account-summary-copy"><span className="status-pill"><span /> Active account</span><h3>SAMUEL KP</h3><p>Student · Blantyre Secondary School · Form 3</p><small>Member since 16 September 2024</small></div><button type="button" className="outline-button" onClick={() => onNavigate('profile')}><IconEdit size={15} /> Edit profile</button></div><div className="settings-card"><div className="card-title-row"><div><h3>Account information</h3><p>Your identity and school details.</p></div><IconLock size={17} /></div><div className="account-fields"><div><span>Full name</span><strong>SAMUEL KP</strong></div><div><span>Account type</span><strong>Student</strong></div><div><span>Email address</span><strong>samuel.kp@example.com</strong></div><div><span>Phone number</span><strong>+265 888 204 118</strong></div><div><span>School</span><strong>Blantyre Secondary School</strong></div><div><span>Class / Form</span><strong>Form 3</strong></div></div></div><div className="settings-card schedule-note"><IconAdjustments size={18} /><div><strong>Profile editing schedule</strong><p>Your profile was last updated on 16 September 2026. You can edit it again on 16 March 2027. Sensitive membership changes require approval.</p></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Password</h3><p>Keep your account access secure.</p></div><button type="button" className="text-button" onClick={() => onAction('Password change is ready to connect when authentication is enabled.')}>Change password <IconChevronRight size={15} /></button></div></div></>}
         {activeSection === 'membership' && <><div className="settings-card"><div className="card-title-row"><div><h3>Student membership</h3><p>These details connect you to the right resources.</p></div><span className="status-pill"><span /> Approved</span></div><div className="account-fields"><div><span>Current school</span><strong>Blantyre Secondary School</strong></div><div><span>Class / Form</span><strong>Form 3</strong></div><div><span>Registration number</span><strong>BS-24-0318</strong></div><div><span>Primary department</span><strong>Sciences &amp; Technology</strong></div><div><span>Membership approved</span><strong>18 September 2024</strong></div></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Departments and subjects</h3><p>Your selections shape recommendations and notifications.</p></div><button type="button" className="outline-button">Update preferences</button></div><div className="chip-list"><span className="choice-chip selected"><IconCheck size={13} /> Science <b>Primary</b></span><span className="choice-chip selected"><IconCheck size={13} /> Humanities</span><span className="choice-chip">Business</span><span className="choice-chip">Languages</span></div></div><div className="action-list"><button type="button">Request a school change <IconChevronRight size={16} /></button><button type="button">Report incorrect school information <IconChevronRight size={16} /></button></div></>}
         {activeSection === 'notifications' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Notification channels</h3><p>Security and recovery alerts always stay on.</p></div></div><SettingToggle label="In-app notifications" description="Updates inside Learn Hub" /><SettingToggle label="Push notifications" description="New activity on your devices" /><SettingToggle label="Email notifications" defaultChecked={false} /><div className="subsection-heading">School notifications</div><SettingToggle label="Books and subject notes" /><SettingToggle label="Past papers" /><SettingToggle label="Video tutorials" defaultChecked={false} /><SettingToggle label="School announcements" /><div className="subsection-heading">Question notifications</div><SettingToggle label="Answers to my questions" /><SettingToggle label="Correct-answer confirmations" /><SettingToggle label="Activity on followed questions" defaultChecked={false} /></div>}
@@ -1832,7 +1837,7 @@ function App() {
       >
         {currentPage === 'home' ? (
           <>
-        <div className="discovery-top">
+        <div className={`discovery-top${isHeaderShrunk ? ' is-compact' : ''}`}>
           <header className={`topbar${isHeaderShrunk ? ' is-compact' : ''}`}>
           <div className="header-main">
             <div className="page-heading">
@@ -1851,8 +1856,19 @@ function App() {
                 </select>
                 <span className="search-divider" aria-hidden="true" />
                 <label htmlFor="book-search-input" className="visually-hidden">Search books</label>
-                <input id="book-search-input" type="search" placeholder="Find books, past papers, notes..." />
-                <button type="submit" className="search-submit-btn">Search</button>
+                <input
+                  id="book-search-input"
+                  type="search"
+                  placeholder="Find books, past papers, notes..."
+                  onFocus={(event) => {
+                    const page = event.currentTarget.closest('.discovery-page');
+                    const scrollTop = page?.scrollTop ?? 0;
+                    window.setTimeout(() => page?.scrollTo({ top: scrollTop, behavior: 'auto' }), 0);
+                  }}
+                />
+                <button type="submit" className="search-submit-btn" aria-label="Search" title="Search">
+                  {isHeaderShrunk ? <IconSearch size={16} stroke={2} /> : 'Search'}
+                </button>
               </form>
               <span className="search-baseline" aria-hidden="true" />
             </div>
