@@ -205,6 +205,7 @@ export default function ScholasticHub({
   onNavigate,
   onOpenResource,
   initialView = 'repository',
+  showOverview = true,
 }) {
   const [activeView, setActiveView] = useState(initialView);
   const [query, setQuery] = useState('');
@@ -382,14 +383,34 @@ export default function ScholasticHub({
   );
 
   const subjects = ['All subjects', 'Biology', 'Mathematics', 'English', 'Physical Science'];
+  const viewRoutes = {
+    repository: 'scholastic-repository',
+    progress: 'scholastic-progress',
+    vault: 'scholastic-vault',
+    review: 'scholastic-review',
+    docs: 'scholastic-docs',
+  };
+  const openView = (view) => {
+    if (onNavigate && viewRoutes[view]) {
+      onNavigate(viewRoutes[view]);
+      return;
+    }
+    setActiveView(view);
+  };
 
   return (
-    <div className="product-page scholastic-page">
+    <div className={`product-page scholastic-page${showOverview ? ' scholastic-page-overview' : ' scholastic-page-standalone'}`}>
       {/* 1. Header Matching Library Page */}
       <header className="library-header scholastic-page-header">
         <div className="library-header-content">
           <div className="page-heading">
-            <h1>Scholastic Hub</h1>
+            <h1>{showOverview ? 'Scholastic Hub' : {
+              repository: 'Resource Repository',
+              progress: 'Learning Progress',
+              vault: 'Offline Vault',
+              review: 'Review Queue',
+              docs: 'System Guide',
+            }[activeView]}</h1>
           </div>
           {HeaderActions && <HeaderActions onNavigate={onNavigate} onAction={onAction} />}
         </div>
@@ -400,6 +421,7 @@ export default function ScholasticHub({
       <div className="scholastic-background scholastic-background-bottom" aria-hidden="true" />
 
       <main className="scholastic-main-content">
+        {showOverview && <>
         {/* Hero Banner & Status Pill */}
         <div className="scholastic-hero-banner">
           <div className="scholastic-hero-text">
@@ -443,7 +465,7 @@ export default function ScholasticHub({
           <button
             type="button"
             className={`scholastic-stat-tile ${activeView === 'repository' ? 'is-selected' : ''}`}
-            onClick={() => setActiveView('repository')}
+            onClick={() => openView('repository')}
           >
             <div className="stat-tile-top">
               <div className="stat-icon-badge icon-green">
@@ -464,7 +486,7 @@ export default function ScholasticHub({
           <button
             type="button"
             className={`scholastic-stat-tile ${activeView === 'progress' ? 'is-selected' : ''}`}
-            onClick={() => setActiveView('progress')}
+            onClick={() => openView('progress')}
           >
             <div className="stat-tile-top">
               <div className="stat-icon-badge icon-coral">
@@ -485,7 +507,7 @@ export default function ScholasticHub({
           <button
             type="button"
             className={`scholastic-stat-tile ${activeView === 'vault' ? 'is-selected' : ''}`}
-            onClick={() => setActiveView('vault')}
+            onClick={() => openView('vault')}
           >
             <div className="stat-tile-top">
               <div className="stat-icon-badge icon-gold">
@@ -506,7 +528,7 @@ export default function ScholasticHub({
           <button
             type="button"
             className={`scholastic-stat-tile ${activeView === 'review' ? 'is-selected' : ''}`}
-            onClick={() => setActiveView('review')}
+            onClick={() => openView('review')}
           >
             <div className="stat-tile-top">
               <div className="stat-icon-badge icon-teal">
@@ -524,8 +546,9 @@ export default function ScholasticHub({
             </div>
           </button>
         </section>
+        </>}
 
-        {/* 3. Floating Segmented Navigation Tabs */}
+        {/* Destination navigation remains available on large screens and dedicated pages. */}
         <nav className="scholastic-segmented-nav" aria-label="Scholastic Hub views">
           <div className="segmented-pill-container">
             {[
@@ -539,7 +562,7 @@ export default function ScholasticHub({
                 key={key}
                 type="button"
                 className={`segmented-tab-btn ${activeView === key ? 'active' : ''}`}
-                onClick={() => setActiveView(key)}
+                onClick={() => openView(key)}
               >
                 <IconComponent size={16} />
                 <span>{label}</span>

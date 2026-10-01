@@ -80,7 +80,7 @@ export default function CompleteProfile() {
   };
 
   return (
-    <div className="auth-page">
+    <div className="auth-page auth-profile-page">
       <div className="auth-container profile-container">
         <div className="auth-header">
           <div className="auth-logo">

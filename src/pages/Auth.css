@@ -1,4 +1,5 @@
 .auth-page {
+  height: 100dvh;
   min-height: 100dvh;
   display: flex;
   align-items: center;
@@ -26,11 +27,13 @@
   align-items: center;
 }
 
-.auth-register-page {
+.auth-register-page,
+.auth-profile-page {
   align-items: flex-start;
 }
 
-.auth-register-page .auth-container {
+.auth-register-page .auth-container,
+.auth-profile-page .auth-container {
   margin: 16px auto;
 }
 
@@ -528,7 +531,8 @@
     align-items: center;
   }
 
-  .auth-register-page {
+  .auth-register-page,
+  .auth-profile-page {
     align-items: flex-start;
   }
 
@@ -536,7 +540,8 @@
     min-height: auto;
   }
 
-  .auth-register-page .auth-container {
+  .auth-register-page .auth-container,
+  .auth-profile-page .auth-container {
     min-height: calc(100dvh - 20px);
     margin: 0 auto;
     padding-bottom: max(32px, env(safe-area-inset-bottom));

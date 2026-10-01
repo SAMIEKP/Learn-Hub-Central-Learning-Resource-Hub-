@@ -45,6 +45,8 @@ import {
   IconQuestionMark,
   IconAward,
   IconAdjustments,
+  IconMenu2,
+  IconX,
 } from '@tabler/icons-react';
 import './App.css';
 import logo from './logo.svg';
@@ -897,11 +899,18 @@ function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defa
   };
 
   const toggleNotifications = () => {
+    if (window.matchMedia('(max-width: 650px)').matches) {
+      setProfileOpen(false);
+      setNotificationsOpen(false);
+      onNavigate('notifications');
+      return;
+    }
     setNotificationsOpen(!notificationsOpen);
     setProfileOpen(false);
   };
 
   return <div className="user-actions" ref={headerActionsRef}>
+    <button type="button" className="mobile-global-menu-trigger" aria-label="Open Scholastic Hub menu" onClick={() => window.dispatchEvent(new Event('open-mobile-scholastic-menu'))}><IconMenu2 size={20} /></button>
     <div className="header-profile-menu">
       <button type="button" className="header-profile-trigger" aria-expanded={profileOpen} onClick={toggleProfile}>
         {profileImage ? <img className="user-avatar header-user-image" src={profileImage} alt={`${user.name} profile`} /> : <span className="user-avatar">{user.initials}</span>}
@@ -918,6 +927,65 @@ function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defa
       </button>
       {notificationsOpen && <div className="header-popover notifications-popover"><div className="notifications-heading"><strong>Notifications</strong>{unreadCount > 0 && <button type="button" onClick={() => setNotifications([])}>Clear all</button>}</div>{notifications.length > 0 ? notifications.map((notification) => <div className="notification-item" key={notification.id}><span className="notification-item-dot" /><span><strong>{notification.title}</strong><small>{notification.detail}</small></span><button type="button" aria-label={`Clear ${notification.title}`} onClick={() => setNotifications(notifications.filter((item) => item.id !== notification.id))}>×</button></div>) : <p className="notifications-empty">You are all caught up.</p>}</div>}
     </div>
+  </div>;
+}
+
+function MobileScholasticMenu({ isOpen, onClose, onNavigate }) {
+  if (!isOpen) return null;
+  return <div className="mobile-scholar-menu-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+    <aside className="mobile-scholar-menu" role="dialog" aria-modal="true" aria-labelledby="mobile-scholar-menu-title">
+      <div className="mobile-scholar-menu-heading">
+        <div><span className="eyebrow">Learn Hub</span><h2 id="mobile-scholar-menu-title">Scholastic Hub</h2></div>
+        <button type="button" className="mobile-scholar-menu-close" aria-label="Close Scholastic Hub menu" onClick={onClose}><IconX size={19} /></button>
+      </div>
+      <p className="mobile-scholar-menu-intro">Explore the academic tools and resources in separate views.</p>
+      <nav className="mobile-scholar-menu-list" aria-label="Scholastic Hub pages">
+        {[
+          ['scholastic-repository', 'Resource Repository', IconBook2],
+          ['scholastic-progress', 'Learning Progress', IconTrendingUp],
+          ['scholastic-vault', 'Offline Vault', IconDownload],
+          ['scholastic-review', 'Review Queue', IconCheck],
+          ['scholastic-docs', 'System Guide', IconBook],
+        ].map(([page, label, ItemIcon]) => <button type="button" key={page} className="mobile-scholar-menu-item" onClick={() => onNavigate(page)}><span className="mobile-scholar-menu-icon"><ItemIcon size={18} /></span><span>{label}</span><IconChevronRight size={17} /></button>)}
+      </nav>
+    </aside>
+  </div>;
+}
+
+function NotificationsPage({ onNavigate = () => {} }) {
+  const notifications = [
+    { id: 1, title: 'New Biology notes uploaded', detail: 'Blantyre Secondary School · 12 min ago', type: 'Resource update' },
+    { id: 2, title: 'Your question received an answer', detail: 'Photosynthesis · 1 hour ago', type: 'Community activity' },
+    { id: 3, title: 'Past Paper collection updated', detail: 'Mathematics Form 4 · Yesterday', type: 'Library update' },
+  ];
+
+  return <div className="product-page notifications-page">
+    <header className="library-header notifications-page-header">
+      <div className="library-header-content">
+        <div className="page-heading">
+          <h1>Notifications</h1>
+        </div>
+        <HeaderActions onNavigate={onNavigate} />
+      </div>
+    </header>
+    <main className="notifications-page-content">
+      <div className="notifications-page-intro">
+        <span className="eyebrow">Your activity centre</span>
+        <h2>Stay up to date</h2>
+        <p>Important updates from your school, library, and learning community.</p>
+      </div>
+      <section className="notifications-page-list" aria-label="Notifications list">
+        {notifications.map((notification) => <article className="notifications-page-item" key={notification.id}>
+          <span className="notifications-page-icon"><IconBell size={18} /></span>
+          <div>
+            <span className="notifications-page-type">{notification.type}</span>
+            <h3>{notification.title}</h3>
+            <p>{notification.detail}</p>
+          </div>
+          <IconChevronRight className="notifications-page-arrow" size={17} />
+        </article>)}
+      </section>
+    </main>
   </div>;
 }
 
@@ -1149,7 +1217,6 @@ function ProfilePage({ onOpenSettings }) {
   const [profileDetails, setProfileDetails] = useState(() => ({ ...profileDefaults, ...readStoredValue('learnhub-profile-details', {}) }));
   const [draftProfile, setDraftProfile] = useState(profileDetails);
   const [profileImageError, setProfileImageError] = useState('');
-  const [profileSaveMessage, setProfileSaveMessage] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const closeProfileEditor = useCallback(() => setIsEditing(false), []);
   const profileDialogRef = useDialogAccessibility(isEditing, closeProfileEditor);
@@ -1199,8 +1266,6 @@ function ProfilePage({ onOpenSettings }) {
     setProfileDetails(savedProfile);
     writeStoredValue('learnhub-profile-details', savedProfile);
     setIsEditing(false);
-    setProfileSaveMessage('Profile changes saved.');
-    window.setTimeout(() => setProfileSaveMessage(''), 2600);
   };
 
   const renderAvatar = (className) => profileImage
@@ -1223,7 +1288,6 @@ function ProfilePage({ onOpenSettings }) {
       <div className="profile-actions"><button type="button" className="outline-button" onClick={onOpenSettings}><IconAdjustments size={15} /> Settings</button><button type="button" className="primary-button" onClick={openEditor}><IconEdit size={15} /> Edit profile</button></div>
     </header>
     <nav className="profile-tabs" aria-label="Profile sections">{tabs.map((tab) => <button key={tab} type="button" className={activeTab === tab ? 'active' : ''} onClick={() => setActiveTab(tab)}>{tab[0].toUpperCase() + tab.slice(1)}</button>)}</nav>
-    {profileSaveMessage && <div className="app-action-feedback" role="status">{profileSaveMessage}</div>}
     <div className="profile-content">
       {activeTab === 'overview' && <><div className="profile-stats"><div><strong>18</strong><span>Questions asked</span></div><div><strong>42</strong><span>Answers received</span></div><div><strong>7</strong><span>Resources completed</span></div><div><strong>3</strong><span>Saved collections</span></div></div><div className="profile-grid"><section className="profile-panel"><div className="panel-heading"><div><span className="eyebrow">Learning focus</span><h2>My departments</h2></div><IconBook2 size={18} /></div><div className="profile-chip-row"><span className="profile-chip primary">{profileDetails.department} <b>Primary</b></span></div><div className="panel-heading panel-heading-spaced"><div><span className="eyebrow">Subjects</span><h2>Preferred subjects</h2></div></div><div className="subject-list">{profileDetails.subjects.split(',').map((subject) => <span key={subject.trim()}>{subject.trim()}</span>)}</div></section><section className="profile-panel progress-panel"><div className="panel-heading"><div><span className="eyebrow">This term</span><h2>Learning progress</h2></div><IconAward size={18} /></div><div className="goal-ring"><strong>68%</strong><span>of your reading goal</span></div><div className="progress-track"><span style={{ width: '68%' }} /></div><p>12 of 18 planned resources completed this term.</p><button type="button" className="text-button">View activity <IconChevronRight size={15} /></button></section></div></>}
       {activeTab === 'questions' && <section className="profile-panel profile-list-panel"><div className="panel-heading"><div><span className="eyebrow">Public activity</span><h2>Questions asked</h2></div><span className="count-label">18 total</span></div><article className="question-row"><div><span className="profile-chip">Biology</span><h3>How does photosynthesis produce glucose?</h3><p>4 answers · 8 likes</p></div><span className="question-status answered">Answered</span></article><article className="question-row"><div><span className="profile-chip">Biology</span><h3>What is the difference between mitosis and meiosis?</h3><p>2 answers · 5 likes</p></div><span className="question-status open">Open</span></article></section>}
@@ -1239,12 +1303,18 @@ function AppContent() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [isHeaderShrunk, setIsHeaderShrunk] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All STEM');
   const { currentPage, setCurrentPage, navigateTo } = useAppNavigation();
+
+  useEffect(() => {
+    const openMobileMenu = () => setIsMobileMenuOpen(true);
+    window.addEventListener('open-mobile-scholastic-menu', openMobileMenu);
+    return () => window.removeEventListener('open-mobile-scholastic-menu', openMobileMenu);
+  }, []);
   const [selectedResource, setSelectedResource] = useState(null);
   const [resourceReturnPage, setResourceReturnPage] = useState('home');
   const [resourceCollection, setResourceCollection] = useState(null);
-  const actionMessage = useAppStore((state) => state.actionMessage);
   const showGlobalAction = useAppStore((state) => state.showAction);
   const logout = useAppStore((state) => state.logout);
   const [libraryResourceKeys, setLibraryResourceKeys] = useSetStorageState('learnhub-library-keys', [...libraryItems, ...savedResources].map(resourceKey));
@@ -1711,6 +1781,7 @@ function AppContent() {
 
   const handleInteractiveClick = (event) => {
     if (event.defaultPrevented) return;
+    if (event.target.closest('.mobile-home-menu, .mobile-scholar-menu')) return;
     if (event.target.closest('.book-details-page, .resource-detail-page, .resource-reader-page, .discover-post-modal, .create-post-section, .feed-post') || event.target.closest('.sidebar-post-book')) return;
     const card = event.target.closest('.kindle-book-card, .continue-card, .library-item-card');
     const control = event.target.closest('button, a');
@@ -1723,6 +1794,7 @@ function AppContent() {
       library: 'library',
       discover: 'discover',
       'scholastic-hub': 'scholastic-hub',
+      'scholastic-repository': 'scholastic-repository',
       'scholastic-progress': 'scholastic-progress',
       'scholastic-vault': 'scholastic-vault',
       'scholastic-contribute': 'scholastic-contribute',
@@ -1814,6 +1886,10 @@ function AppContent() {
   };
 
   const displayLibraryItems = [...libraryItems, ...postedResources];
+  const navigateFromMobileMenu = (page) => {
+    setIsMobileMenuOpen(false);
+    navigateTo(page);
+  };
 
   return (
     <div className={`app-shell${currentPage === 'reader' ? ' is-reading' : ''}`} onClick={handleInteractiveClick}>
@@ -1870,7 +1946,12 @@ function AppContent() {
           <header className={`topbar${isHeaderShrunk ? ' is-compact' : ''}`}>
           <div className="header-main">
             <div className="page-heading">
-              <h1>Home</h1>
+              <div className="mobile-home-heading-row">
+                <h1>Home</h1>
+                <button type="button" className="mobile-home-menu-trigger" aria-label="Open Scholastic Hub menu" aria-expanded={isMobileMenuOpen} onClick={() => setIsMobileMenuOpen((open) => !open)}>
+                  <IconMenu2 size={20} />
+                </button>
+              </div>
             </div>
             <div className="header-search-row">
               <form className="book-search" role="search" onSubmit={(event) => event.preventDefault()}>
@@ -1905,6 +1986,25 @@ function AppContent() {
         <HeaderActions onNavigate={navigateTo} />
           </header>
         </div>
+
+        {isMobileMenuOpen && <div className="mobile-scholar-menu-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setIsMobileMenuOpen(false); }}>
+          <aside className="mobile-scholar-menu" role="dialog" aria-modal="true" aria-labelledby="mobile-scholar-menu-title">
+            <div className="mobile-scholar-menu-heading">
+              <div><span className="eyebrow">Learn Hub</span><h2 id="mobile-scholar-menu-title">Scholastic Hub</h2></div>
+              <button type="button" className="mobile-scholar-menu-close" aria-label="Close Scholastic Hub menu" onClick={() => setIsMobileMenuOpen(false)}><IconX size={19} /></button>
+            </div>
+            <p className="mobile-scholar-menu-intro">Explore the academic tools and resources in separate views.</p>
+            <nav className="mobile-scholar-menu-list" aria-label="Scholastic Hub pages">
+              {[
+                ['scholastic-repository', 'Resource Repository', IconBook2],
+                ['scholastic-progress', 'Learning Progress', IconTrendingUp],
+                ['scholastic-vault', 'Offline Vault', IconDownload],
+                ['scholastic-review', 'Review Queue', IconCheck],
+                ['scholastic-docs', 'System Guide', IconBook],
+              ].map(([page, label, ItemIcon]) => <button type="button" key={page} className="mobile-scholar-menu-item" onClick={() => navigateFromMobileMenu(page)}><span className="mobile-scholar-menu-icon"><ItemIcon size={18} /></span><span>{label}</span><IconChevronRight size={17} /></button>)}
+            </nav>
+          </aside>
+        </div>}
 
         <div className="discovery-bottom">
           <section className="discovery-content">
@@ -2950,16 +3050,20 @@ function AppContent() {
               </div>
             </div>
           </div>
+        ) : currentPage === 'notifications' ? (
+          <NotificationsPage onNavigate={navigateTo} />
         ) : currentPage === 'scholastic-hub' ? (
           <ScholasticHub HeaderActions={HeaderActions} onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
+        ) : currentPage === 'scholastic-repository' ? (
+          <ScholasticHub HeaderActions={HeaderActions} initialView="repository" showOverview={false} onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
         ) : currentPage === 'scholastic-progress' ? (
-          <ScholasticHub HeaderActions={HeaderActions} initialView="progress" onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
+          <ScholasticHub HeaderActions={HeaderActions} initialView="progress" showOverview={false} onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
         ) : currentPage === 'scholastic-vault' ? (
-          <ScholasticHub HeaderActions={HeaderActions} initialView="vault" onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
+          <ScholasticHub HeaderActions={HeaderActions} initialView="vault" showOverview={false} onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
         ) : currentPage === 'scholastic-review' ? (
-          <ScholasticHub HeaderActions={HeaderActions} initialView="review" onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
+          <ScholasticHub HeaderActions={HeaderActions} initialView="review" showOverview={false} onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
         ) : currentPage === 'scholastic-docs' ? (
-          <ScholasticHub HeaderActions={HeaderActions} initialView="docs" onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
+          <ScholasticHub HeaderActions={HeaderActions} initialView="docs" showOverview={false} onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
         ) : currentPage === 'publisher-studio' ? (
           <PublisherStudioPage onNavigate={navigateTo} onAction={showAction} onSubmitResource={savePostedResource} />
         ) : currentPage === 'resource-list' && resourceCollection ? (
@@ -2976,6 +3080,7 @@ function AppContent() {
           <SettingsPage onNavigate={navigateTo} onAction={showAction} />
         ) : null}
       </main>
+      {currentPage !== 'home' && <MobileScholasticMenu isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} onNavigate={navigateFromMobileMenu} />}
       {(pendingFeedAction || reportDialogPost) && createPortal(<div className="feed-confirmation-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeFeedDialogs(); }}>
         {reportDialogPost ? <form ref={feedDialogRef} role="dialog" aria-modal="true" aria-labelledby="report-post-title" className="feed-confirmation-dialog" onSubmit={submitPostReport}>
           <div className="feed-confirmation-heading"><div><span className="eyebrow">Safety review</span><h2 id="report-post-title">Report post</h2></div><button type="button" className="modal-close" aria-label="Close report dialog" onClick={closeFeedDialogs}>×</button></div>
@@ -2988,11 +3093,9 @@ function AppContent() {
         <button type="button" className={currentPage === 'home' ? 'active' : ''} onClick={() => navigateTo('home')}><IconHome size={20} /><span>Home</span></button>
         <button type="button" className={currentPage === 'library' ? 'active' : ''} onClick={() => navigateTo('library')}><IconBook size={20} /><span>Library</span></button>
         <button type="button" className={currentPage === 'discover' ? 'active' : ''} onClick={() => navigateTo('discover')}><IconCompass size={20} /><span>Discover</span></button>
-        <button type="button" className={currentPage === 'scholastic-hub' ? 'active' : ''} onClick={() => navigateTo('scholastic-hub')}><IconSchool size={20} /><span>Hub</span></button>
-        <button type="button" onClick={() => showAction('Notifications are available from the header.')}><IconBell size={20} /><span>Alerts</span></button>
+        <button type="button" className={currentPage === 'scholastic-hub' ? 'active' : ''} onClick={() => navigateTo('scholastic-hub')}><IconSchool size={20} /><span>Scholastic Hub</span></button>
         <button type="button" className={currentPage === 'profile' ? 'active' : ''} onClick={() => navigateTo('profile')}><IconUser size={20} /><span>Profile</span></button>
       </nav>}
-      {actionMessage && <div className="app-action-feedback" role="status">{actionMessage}</div>}
     </div>
   );
 }
