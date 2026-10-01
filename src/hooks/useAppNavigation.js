@@ -1,32 +1,43 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-const primaryRoutes = ['home', 'library', 'discover', 'profile', 'settings'];
+const primaryRoutes = [
+  'home',
+  'library',
+  'discover',
+  'scholastic-hub',
+  'scholastic-progress',
+  'scholastic-vault',
+  'scholastic-contribute',
+  'scholastic-review',
+  'scholastic-docs',
+  'publisher-studio',
+  'resource-list',
+  'resource',
+  'publisher',
+  'reader',
+  'profile',
+  'settings',
+];
 
-const routeFromLocation = () => {
-  const route = window.location.hash.slice(1);
-  return primaryRoutes.includes(route) ? route : 'home';
+const routeFromLocation = (pathname) => {
+  const route = pathname.replace(/^\//, '').split('/')[0];
+  if (primaryRoutes.includes(route)) return route;
+  const legacyHash = window.location.hash.slice(1);
+  return primaryRoutes.includes(legacyHash) ? legacyHash : 'home';
 };
 
 export function useAppNavigation() {
-  const [currentPage, setCurrentPage] = useState(routeFromLocation);
+  const location = useLocation();
+  const navigate = useNavigate();
+  const currentPage = routeFromLocation(location.pathname);
 
   const navigateTo = useCallback((page) => {
     if (!primaryRoutes.includes(page)) return;
-    setCurrentPage(page);
-    window.history.pushState({ page }, '', `#${page}`);
-  }, []);
+    navigate(page === 'home' ? '/' : `/${page}`);
+  }, [navigate]);
 
-  useEffect(() => {
-    const handleRouteChange = () => setCurrentPage(routeFromLocation());
-    window.addEventListener('popstate', handleRouteChange);
-    window.addEventListener('hashchange', handleRouteChange);
-    return () => {
-      window.removeEventListener('popstate', handleRouteChange);
-      window.removeEventListener('hashchange', handleRouteChange);
-    };
-  }, []);
-
-  return { currentPage, setCurrentPage, navigateTo };
+  return { currentPage, setCurrentPage: navigateTo, navigateTo };
 }
 
 export default useAppNavigation;

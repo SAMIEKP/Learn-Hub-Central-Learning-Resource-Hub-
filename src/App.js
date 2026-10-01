@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { BrowserRouter, useLocation, useNavigate, Route, Routes } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import CompleteProfile from './pages/CompleteProfile';
+import ProtectedRoute from './components/ProtectedRoute';
 import {
   IconHome,
   IconVideo,
@@ -48,6 +55,10 @@ import { useAppNavigation } from './hooks/useAppNavigation';
 import SettingToggle from './components/SettingToggle';
 import { readStoredValue, writeStoredValue } from './utils/storage';
 import { compressImageFile } from './utils/image';
+import ScholasticHub from './components/ScholasticHub';
+import FileDropzone from './components/FileDropzone';
+import { useAppStore } from './store/useAppStore';
+import { formatDate } from './utils/date';
 
 const libraryItems = [
   {
@@ -853,6 +864,9 @@ const resourceKey = (resource) => String(resource.id || resource.title);
 const defaultCurrentUser = { id: 'user-samuel', name: 'SAMUEL KP', initials: 'SKP', role: 'Student · Form 3', school: 'Blantyre Secondary School' };
 
 function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defaultCurrentUser }) {
+  const navigate = useNavigate();
+  const logout = useAppStore((state) => state.logout);
+  const showGlobalAction = useAppStore((state) => state.showAction);
   const headerActionsRef = useRef(null);
   const storedProfile = readStoredValue('learnhub-profile-details', {});
   const profileImage = user.image || storedProfile.image;
@@ -893,7 +907,7 @@ function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defa
         {profileImage ? <img className="user-avatar header-user-image" src={profileImage} alt={`${user.name} profile`} /> : <span className="user-avatar">{user.initials}</span>}
         <span className="user-name">{user.name}</span>
       </button>
-      {profileOpen && <div className="header-popover profile-popover"><div className="popover-identity">{profileImage ? <img className="user-avatar header-user-image" src={profileImage} alt={`${user.name} profile`} /> : <span className="user-avatar">{user.initials}</span>}<span><strong>{user.name}</strong><small>{user.role}</small></span></div><div className="popover-links"><a href="#profile" onClick={(event) => { event.preventDefault(); onNavigate('profile'); setProfileOpen(false); }}>View profile</a><a href="#library" onClick={(event) => { event.preventDefault(); onNavigate('library'); setProfileOpen(false); }}>My library</a><a href="#settings" onClick={(event) => { event.preventDefault(); onNavigate('settings'); setProfileOpen(false); }}>Settings</a></div><button type="button" className="popover-signout" onClick={() => onAction('Log out is not available in this demo yet.')}><IconLogout size={15} /> Log out</button></div>}
+      {profileOpen && <div className="header-popover profile-popover"><div className="popover-identity">{profileImage ? <img className="user-avatar header-user-image" src={profileImage} alt={`${user.name} profile`} /> : <span className="user-avatar">{user.initials}</span>}<span><strong>{user.name}</strong><small>{user.role}</small></span></div><div className="popover-links"><a href="#profile" onClick={(event) => { event.preventDefault(); onNavigate('profile'); setProfileOpen(false); }}>View profile</a><a href="#library" onClick={(event) => { event.preventDefault(); onNavigate('library'); setProfileOpen(false); }}>My library</a><a href="#settings" onClick={(event) => { event.preventDefault(); onNavigate('settings'); setProfileOpen(false); }}>Settings</a></div><button type="button" className="popover-signout" onClick={() => { logout(); showGlobalAction('You have been logged out successfully.'); navigate('/login'); setProfileOpen(false); }}><IconLogout size={15} /> Log out</button></div>}
     </div>
     <button type="button" className="mobile-settings-trigger" aria-label="Open settings" onClick={() => onNavigate('settings')}><IconSettings size={20} /></button>
     <div className="header-notifications">
@@ -931,7 +945,7 @@ function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
     <div className="settings-background settings-background-top" aria-hidden="true" />
     <div className="settings-background settings-background-bottom" aria-hidden="true" />
     <div className={`settings-layout${mobileSectionOpen ? ' is-mobile-section-open' : ''}`}>
-      <nav className="settings-nav" aria-label="Settings sections"><span className="settings-nav-label">Manage Learn Hub</span>{settingsSections.map(([id, label, description, ItemIcon]) => <button key={id} type="button" className={`settings-nav-item ${activeSection === id ? 'active' : ''}`} onClick={() => selectSettingsSection(id)}><ItemIcon size={17} stroke={1.8} /><span><b>{label}</b><small>{description}</small></span><IconChevronRight size={15} /></button>)}<button type="button" className="settings-logout" onClick={() => onAction('Log out is not available in this demo yet.')}><IconLogout size={17} /> Log out</button></nav>
+      <nav className="settings-nav" aria-label="Settings sections"><span className="settings-nav-label">Manage Learn Hub</span>{settingsSections.map(([id, label, description, ItemIcon]) => <button key={id} type="button" className={`settings-nav-item ${activeSection === id ? 'active' : ''}`} onClick={() => selectSettingsSection(id)}><ItemIcon size={17} stroke={1.8} /><span><b>{label}</b><small>{description}</small></span><IconChevronRight size={15} /></button>)}<button type="button" className="settings-logout" onClick={() => { logout(); showGlobalAction('You have been logged out successfully.'); navigate('/login'); }}><IconLogout size={17} /> Log out</button></nav>
       <section className={`settings-detail${mobileSectionOpen ? ' is-mobile-section-open' : ''}`} aria-labelledby="settings-detail-title"><button type="button" className="mobile-settings-back" onClick={() => setMobileSectionOpen(false)}><IconChevronRight size={16} /> <span>Settings</span></button><div className="settings-detail-heading"><div className="settings-detail-icon"><SectionIcon size={20} /></div><div><span className="eyebrow">Settings</span><h2 id="settings-detail-title">{selected[1]}</h2><p>{selected[2]}</p></div></div>
         {activeSection === 'account' && <><div className="settings-card account-summary-card"><div className="profile-avatar large">SKP</div><div className="account-summary-copy"><span className="status-pill"><span /> Active account</span><h3>SAMUEL KP</h3><p>Student · Blantyre Secondary School · Form 3</p><small>Member since 16 September 2024</small></div><button type="button" className="outline-button" onClick={() => onNavigate('profile')}><IconEdit size={15} /> Edit profile</button></div><div className="settings-card"><div className="card-title-row"><div><h3>Account information</h3><p>Your identity and school details.</p></div><IconLock size={17} /></div><div className="account-fields"><div><span>Full name</span><strong>SAMUEL KP</strong></div><div><span>Account type</span><strong>Student</strong></div><div><span>Email address</span><strong>samuel.kp@example.com</strong></div><div><span>Phone number</span><strong>+265 888 204 118</strong></div><div><span>School</span><strong>Blantyre Secondary School</strong></div><div><span>Class / Form</span><strong>Form 3</strong></div></div></div><div className="settings-card schedule-note"><IconAdjustments size={18} /><div><strong>Profile editing schedule</strong><p>Your profile was last updated on 16 September 2026. You can edit it again on 16 March 2027. Sensitive membership changes require approval.</p></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Password</h3><p>Keep your account access secure.</p></div><button type="button" className="text-button" onClick={() => onAction('Password change is ready to connect when authentication is enabled.')}>Change password <IconChevronRight size={15} /></button></div></div></>}
         {activeSection === 'membership' && <><div className="settings-card"><div className="card-title-row"><div><h3>Student membership</h3><p>These details connect you to the right resources.</p></div><span className="status-pill"><span /> Approved</span></div><div className="account-fields"><div><span>Current school</span><strong>Blantyre Secondary School</strong></div><div><span>Class / Form</span><strong>Form 3</strong></div><div><span>Registration number</span><strong>BS-24-0318</strong></div><div><span>Primary department</span><strong>Sciences &amp; Technology</strong></div><div><span>Membership approved</span><strong>18 September 2024</strong></div></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Departments and subjects</h3><p>Your selections shape recommendations and notifications.</p></div><button type="button" className="outline-button">Update preferences</button></div><div className="chip-list"><span className="choice-chip selected"><IconCheck size={13} /> Science <b>Primary</b></span><span className="choice-chip selected"><IconCheck size={13} /> Humanities</span><span className="choice-chip">Business</span><span className="choice-chip">Languages</span></div></div><div className="action-list"><button type="button">Request a school change <IconChevronRight size={16} /></button><button type="button">Report incorrect school information <IconChevronRight size={16} /></button></div></>}
@@ -1008,8 +1022,8 @@ function PublisherStudioPage({ onNavigate, onAction, onSubmitResource }) {
   const [postType, setPostType] = useState('book');
   const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
-  const [formData, setFormData] = useState({});
-  const [dragActive, setDragActive] = useState(false);
+  const { register, handleSubmit, setValue, watch, reset } = useForm({ defaultValues: { type: 'book' } });
+  const formData = watch();
 
   const typeName = postType === 'book' ? 'Book' : postType === 'paper' ? 'Past paper' : 'Video lesson';
   const stepSets = {
@@ -1034,7 +1048,7 @@ function PublisherStudioPage({ onNavigate, onAction, onSubmitResource }) {
   const steps = stepSets[postType];
   const currentStep = steps[step];
 
-  const updateField = (key, value) => setFormData((currentData) => ({ ...currentData, [key]: value }));
+  const updateField = (key, value) => setValue(key, value, { shouldDirty: true });
   const handleFile = (key, file) => {
     if (!file) return;
     const extension = file.name.toLowerCase().split('.').pop();
@@ -1043,42 +1057,38 @@ function PublisherStudioPage({ onNavigate, onAction, onSubmitResource }) {
     const isDocument = postType !== 'video' && allowedExtensions.includes(extension) && !file.type.startsWith('image/');
     if (!isVideo && !isDocument) {
       onAction(`That file type is not allowed for a ${postType}. Images cannot be uploaded.`);
-      setDragActive(false);
       return;
     }
     updateField(key, file.name);
-    setDragActive(false);
-  };
-  const handleFileDrop = (event, key) => {
-    event.preventDefault();
-    handleFile(key, event.dataTransfer.files[0]);
   };
   const changeType = (event) => {
     setPostType(event.target.value);
     setStep(0);
-    setFormData({});
+    reset({ type: event.target.value });
   };
 
-  const nextStep = (event) => {
-    event.preventDefault();
-    const missingField = currentStep.fields.find((field) => field.key !== 'type' && !formData[field.key]);
-    if (missingField) {
-      onAction(`Please complete ${missingField.label.toLowerCase()}.`);
+  const nextStep = (data) => {
+    const fields = currentStep.fields.filter((field) => field.key !== 'type');
+    const schema = z.object(Object.fromEntries(fields.map((field) => [field.key, z.string().trim().min(1, `${field.label} is required`)])));
+    const result = schema.safeParse(data);
+    if (!result.success) {
+      onAction(result.error.issues[0]?.message || 'Please complete this step.');
       return;
     }
     if (step < steps.length - 1) setStep(step + 1);
     else {
       onSubmitResource({
         id: `posted-${Date.now()}`,
-        title: formData.title,
+        title: data.title,
         resourceType: postType,
         type: postType,
-        meta: `${formData.subject || 'General'} · Learn Hub submission`,
-        author: formData.author || formData.instructor || 'Learn Hub contributor',
-        board: formData.board,
-        year: formData.year,
-        duration: formData.duration,
-        fileName: formData.file,
+        meta: `${data.subject || 'General'} · Learn Hub submission`,
+        author: data.author || data.instructor || 'Learn Hub contributor',
+        board: data.board,
+        year: data.year,
+        duration: data.duration,
+        fileName: data.file,
+        submittedDate: formatDate(new Date()),
         image: recommendations[0].image,
       });
       setSubmitted(true);
@@ -1086,11 +1096,11 @@ function PublisherStudioPage({ onNavigate, onAction, onSubmitResource }) {
   };
 
   const renderField = (field) => {
-    if (field.kind === 'type') return <select value={postType} onChange={changeType}><option value="book">Book</option><option value="paper">Past paper</option><option value="video">Video lesson</option></select>;
-    if (field.kind === 'subject') return <select value={formData[field.key] || ''} onChange={(event) => updateField(field.key, event.target.value)}><option value="">Choose a subject</option><option>Science</option><option>Mathematics</option><option>Languages</option><option>Humanities</option><option>Business</option></select>;
-    if (field.kind === 'textarea') return <textarea value={formData[field.key] || ''} onChange={(event) => updateField(field.key, event.target.value)} placeholder={field.placeholder} />;
-    if (field.kind === 'file') return <div className={`publish-file-drop ${dragActive ? 'is-dragging' : ''} ${formData[field.key] ? 'has-file' : ''}`} onDragOver={(event) => { event.preventDefault(); setDragActive(true); }} onDragLeave={() => setDragActive(false)} onDrop={(event) => handleFileDrop(event, field.key)}><input id={`publish-file-${field.key}`} type="file" accept={field.accept} onChange={(event) => handleFile(field.key, event.target.files[0])} /><span className="publish-file-icon">↑</span><strong>{formData[field.key] || 'Drop your file here'}</strong><small>or choose a file from your device</small></div>;
-    return <input type={field.kind || 'text'} value={formData[field.key] || ''} onChange={(event) => updateField(field.key, event.target.value)} placeholder={field.placeholder} />;
+    if (field.kind === 'type') return <select {...register('type')} value={postType} onChange={changeType}><option value="book">Book</option><option value="paper">Past paper</option><option value="video">Video lesson</option></select>;
+    if (field.kind === 'subject') return <select {...register(field.key)} defaultValue=""><option value="">Choose a subject</option><option>Science</option><option>Mathematics</option><option>Languages</option><option>Humanities</option><option>Business</option></select>;
+    if (field.kind === 'textarea') return <textarea {...register(field.key)} placeholder={field.placeholder} />;
+    if (field.kind === 'file') return <FileDropzone fileName={formData[field.key]} onFile={(file) => handleFile(field.key, file)} accept={{ [field.accept.includes('video') ? 'video/*' : 'application/*']: [] }} />;
+    return <input {...register(field.key)} type={field.kind || 'text'} placeholder={field.placeholder} />;
   };
 
   return <div className="product-page resource-detail-page publish-book-page">
@@ -1098,7 +1108,7 @@ function PublisherStudioPage({ onNavigate, onAction, onSubmitResource }) {
     <div className="publish-book-background publish-book-background-top" aria-hidden="true" />
     <div className="publish-book-background publish-book-background-bottom" aria-hidden="true" />
     <main className="resource-detail-content">
-      <div className="publish-layout"><section className="book-info-card publish-book-card"><span className="eyebrow">Publisher Studio</span><h2>{submitted ? `${typeName} submitted` : 'Share a resource with Learn Hub'}</h2><p>{submitted ? 'Your resource is now queued for review by the Learn Hub team.' : 'Complete each step to provide the information learners need.'}</p>{submitted ? <div className="publish-success"><span className="publish-success-icon"><IconCheck size={18} /></span><strong>Thanks for contributing to Learn Hub.</strong><small>Our team will review your {postType} before it becomes available to learners.</small><button type="button" className="primary-button" onClick={() => { setSubmitted(false); setStep(0); setFormData({}); }}>Post another resource</button></div> : <form className="publish-book-form" onSubmit={nextStep}><div className="publish-step-progress" aria-label={`Step ${step + 1} of ${steps.length}`}>{steps.map((item, index) => <div key={item.title} className={`publish-step-indicator ${index <= step ? 'is-current' : ''}`}><span>{index + 1}</span><small>{item.title}</small></div>)}</div><div className="publish-step-card"><span className="eyebrow">Step {step + 1} of {steps.length}</span><h3>{currentStep.title}</h3>{currentStep.fields.map((field) => <label key={field.key}>{field.label}{renderField(field)}</label>)}</div><div className="publish-book-actions"><button type="button" className="outline-button" onClick={() => step === 0 ? onNavigate('home') : setStep(step - 1)}>{step === 0 ? 'Cancel' : 'Back'}</button><button type="submit" className="primary-button">{step === steps.length - 1 ? `Submit ${postType}` : 'Continue'}</button></div></form>}</section><aside className="publish-help-card"><span className="eyebrow">Upload guide</span><h3>Prepare your resource</h3><p>Follow these quick tips before you submit.</p><div className="publish-help-item"><strong>Book</strong><span>Upload a clear PDF, EPUB, DOC, or DOCX file. Include the author and publisher details.</span></div><div className="publish-help-item"><strong>Past paper</strong><span>Upload a PDF, DOC, or DOCX file and include the exam board and year.</span></div><div className="publish-help-item"><strong>Video lesson</strong><span>Upload an MP4, WebM, MOV, AVI, or MKV file with the instructor and duration.</span></div><div className="publish-help-note"><IconCheck size={14} /> Images are not accepted.</div></aside></div>
+      <div className="publish-layout"><section className="book-info-card publish-book-card"><span className="eyebrow">Publisher Studio</span><h2>{submitted ? `${typeName} submitted` : 'Share a resource with Learn Hub'}</h2><p>{submitted ? 'Your resource is now queued for review by the Learn Hub team.' : 'Complete each step to provide the information learners need.'}</p>{submitted ? <div className="publish-success"><span className="publish-success-icon"><IconCheck size={18} /></span><strong>Thanks for contributing to Learn Hub.</strong><small>Our team will review your {postType} before it becomes available to learners.</small><button type="button" className="primary-button" onClick={() => { setSubmitted(false); setStep(0); reset({ type: postType }); }}>Post another resource</button></div> : <form className="publish-book-form" onSubmit={handleSubmit(nextStep)}><div className="publish-step-progress" aria-label={`Step ${step + 1} of ${steps.length}`}>{steps.map((item, index) => <div key={item.title} className={`publish-step-indicator ${index <= step ? 'is-current' : ''}`}><span>{index + 1}</span><small>{item.title}</small></div>)}</div><div className="publish-step-card"><span className="eyebrow">Step {step + 1} of {steps.length}</span><h3>{currentStep.title}</h3>{currentStep.fields.map((field) => <label key={field.key}>{field.label}{renderField(field)}</label>)}</div><div className="publish-book-actions"><button type="button" className="outline-button" onClick={() => step === 0 ? onNavigate('home') : setStep(step - 1)}>{step === 0 ? 'Cancel' : 'Back'}</button><button type="submit" className="primary-button">{step === steps.length - 1 ? `Submit ${postType}` : 'Continue'}</button></div></form>}</section><aside className="publish-help-card"><span className="eyebrow">Upload guide</span><h3>Prepare your resource</h3><p>Follow these quick tips before you submit.</p><div className="publish-help-item"><strong>Book</strong><span>Upload a clear PDF, EPUB, DOC, or DOCX file. Include the author and publisher details.</span></div><div className="publish-help-item"><strong>Past paper</strong><span>Upload a PDF, DOC, or DOCX file and include the exam board and year.</span></div><div className="publish-help-item"><strong>Video lesson</strong><span>Upload an MP4, WebM, MOV, AVI, or MKV file with the instructor and duration.</span></div><div className="publish-help-note"><IconCheck size={14} /> Images are not accepted.</div></aside></div>
     </main>
   </div>;
 }
@@ -1225,7 +1235,8 @@ function ProfilePage({ onOpenSettings }) {
   </div>;
 }
 
-function App() {
+function AppContent() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [isHeaderShrunk, setIsHeaderShrunk] = useState(false);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All STEM');
@@ -1233,7 +1244,9 @@ function App() {
   const [selectedResource, setSelectedResource] = useState(null);
   const [resourceReturnPage, setResourceReturnPage] = useState('home');
   const [resourceCollection, setResourceCollection] = useState(null);
-  const [actionMessage, setActionMessage] = useState('');
+  const actionMessage = useAppStore((state) => state.actionMessage);
+  const showGlobalAction = useAppStore((state) => state.showAction);
+  const logout = useAppStore((state) => state.logout);
   const [libraryResourceKeys, setLibraryResourceKeys] = useSetStorageState('learnhub-library-keys', [...libraryItems, ...savedResources].map(resourceKey));
   const [downloadedResourceKeys, setDownloadedResourceKeys] = useSetStorageState('learnhub-downloaded-keys', libraryItems.map(resourceKey));
   const [postedResources, setPostedResources] = useLocalStorageState('learnhub-posted-resources', []);
@@ -1282,7 +1295,6 @@ function App() {
   const recentCommentTimesRef = useRef([]);
   const recentPostTimesRef = useRef([]);
   const feedLoadMoreRef = useRef(null);
-  const actionTimerRef = useRef(null);
 
   const recordActivity = (type, detail) => {
     const activity = readStoredValue('learnhub-activity-history', []);
@@ -1299,11 +1311,9 @@ function App() {
   }, [discoverDraft, discoverImage, discoverImageName, discoverImageMeta, discoverPostType, discoverSubject, discoverDepartment, discoverClass, discoverTopic, discoverRelatedResource, discoverImageCaption, discoverImageAlt]);
 
   const showAction = (message) => {
-    setActionMessage(message);
+    showGlobalAction(message);
     recordActivity('ui-action', message);
     recordAnalyticsEvent('ui_action');
-    window.clearTimeout(actionTimerRef.current);
-    actionTimerRef.current = window.setTimeout(() => setActionMessage(''), 2600);
   };
 
   const openResource = (resource) => {
@@ -1700,6 +1710,7 @@ function App() {
   };
 
   const handleInteractiveClick = (event) => {
+    if (event.defaultPrevented) return;
     if (event.target.closest('.book-details-page, .resource-detail-page, .resource-reader-page, .discover-post-modal, .create-post-section, .feed-post') || event.target.closest('.sidebar-post-book')) return;
     const card = event.target.closest('.kindle-book-card, .continue-card, .library-item-card');
     const control = event.target.closest('button, a');
@@ -1707,7 +1718,19 @@ function App() {
 
     const label = control ? control.textContent.trim().replace(/\s+/g, ' ') : '';
     const href = control ? control.getAttribute('href') || '' : '';
-    const routeMatches = { home: 'home', library: 'library', discover: 'discover', profile: 'profile', settings: 'settings' };
+    const routeMatches = {
+      home: 'home',
+      library: 'library',
+      discover: 'discover',
+      'scholastic-hub': 'scholastic-hub',
+      'scholastic-progress': 'scholastic-progress',
+      'scholastic-vault': 'scholastic-vault',
+      'scholastic-contribute': 'scholastic-contribute',
+      'scholastic-review': 'scholastic-review',
+      'scholastic-docs': 'scholastic-docs',
+      profile: 'profile',
+      settings: 'settings',
+    };
     const hashRoute = href.startsWith('#') ? routeMatches[href.slice(1)] : null;
 
     if (card && !control?.classList.contains('save-book') && !/Download PDF/i.test(label)) {
@@ -1773,7 +1796,9 @@ function App() {
       const resource = titleNode && (postedResources.find((item) => item.title === titleNode.textContent.trim()) || resourceByTitle(titleNode.textContent.trim()));
       if (resource) toggleLibrary(resource);
     } else if (control?.classList.contains('popover-signout') || /^(Log out|Sign out)/i.test(label)) {
-      showAction('Log out is not available in this demo yet.');
+      logout();
+      showGlobalAction('You have been logged out successfully.');
+      navigate('/login');
     } else if (control?.type === 'button' && !control.closest('.settings-nav')) {
       showAction(`${label || 'This action'} is ready to connect.`);
     }
@@ -1800,30 +1825,34 @@ function App() {
 
         <p className="sidebar-label">Main navigation</p>
         <nav aria-label="Sidebar navigation" className="sidebar-nav">
-          <a href="#home" className={`sidebar-link ${currentPage === 'home' ? 'active' : ''}`} onClick={() => setCurrentPage('home')}>
+          <a href="#home" className={`sidebar-link ${currentPage === 'home' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateTo('home'); }}>
             <IconHome size={17} stroke={2} />
             <span>Home</span>
           </a>
-          <a href="#library" className={`sidebar-link ${currentPage === 'library' ? 'active' : ''}`} onClick={() => setCurrentPage('library')}>
+          <a href="#library" className={`sidebar-link ${currentPage === 'library' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateTo('library'); }}>
             <IconBook size={17} stroke={2} />
             <span>Library</span>
           </a>
-          <a href="#discover" className={`sidebar-link ${currentPage === 'discover' ? 'active' : ''}`} onClick={() => setCurrentPage('discover')}>
+          <a href="#discover" className={`sidebar-link ${currentPage === 'discover' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateTo('discover'); }}>
             <IconCompass size={17} stroke={2} />
             <span>Discover</span>
           </a>
-          <button type="button" className={`sidebar-link sidebar-post-book ${currentPage === 'publisher-studio' ? 'active' : ''}`} onClick={() => setCurrentPage('publisher-studio')}>
+          <a href="#scholastic-hub" className={`sidebar-link ${currentPage === 'scholastic-hub' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateTo('scholastic-hub'); }}>
+            <IconSchool size={17} stroke={2} />
+            <span>Scholastic Hub</span>
+          </a>
+          <button type="button" className={`sidebar-link sidebar-post-book ${currentPage === 'publisher-studio' ? 'active' : ''}`} onClick={() => navigateTo('publisher-studio')}>
             <IconFileText size={17} stroke={2} />
             <span>Post a book</span>
           </button>
         </nav>
 
         <div className="sidebar-footer">
-          <a href="#profile" className={`sidebar-link ${currentPage === 'profile' ? 'active' : ''}`} onClick={() => setCurrentPage('profile')}>
+          <a href="#profile" className={`sidebar-link ${currentPage === 'profile' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateTo('profile'); }}>
             <IconUser size={17} stroke={2} />
             <span>Profile</span>
           </a>
-          <a href="#settings" className={`sidebar-link ${currentPage === 'settings' ? 'active' : ''}`} onClick={() => setCurrentPage('settings')}>
+          <a href="#settings" className={`sidebar-link ${currentPage === 'settings' ? 'active' : ''}`} onClick={(event) => { event.preventDefault(); navigateTo('settings'); }}>
             <IconSettings size={17} stroke={2} />
             <span>Settings</span>
           </a>
@@ -2921,6 +2950,16 @@ function App() {
               </div>
             </div>
           </div>
+        ) : currentPage === 'scholastic-hub' ? (
+          <ScholasticHub HeaderActions={HeaderActions} onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
+        ) : currentPage === 'scholastic-progress' ? (
+          <ScholasticHub HeaderActions={HeaderActions} initialView="progress" onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
+        ) : currentPage === 'scholastic-vault' ? (
+          <ScholasticHub HeaderActions={HeaderActions} initialView="vault" onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
+        ) : currentPage === 'scholastic-review' ? (
+          <ScholasticHub HeaderActions={HeaderActions} initialView="review" onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
+        ) : currentPage === 'scholastic-docs' ? (
+          <ScholasticHub HeaderActions={HeaderActions} initialView="docs" onAction={showAction} onNavigate={navigateTo} onOpenResource={openResource} />
         ) : currentPage === 'publisher-studio' ? (
           <PublisherStudioPage onNavigate={navigateTo} onAction={showAction} onSubmitResource={savePostedResource} />
         ) : currentPage === 'resource-list' && resourceCollection ? (
@@ -2949,12 +2988,31 @@ function App() {
         <button type="button" className={currentPage === 'home' ? 'active' : ''} onClick={() => navigateTo('home')}><IconHome size={20} /><span>Home</span></button>
         <button type="button" className={currentPage === 'library' ? 'active' : ''} onClick={() => navigateTo('library')}><IconBook size={20} /><span>Library</span></button>
         <button type="button" className={currentPage === 'discover' ? 'active' : ''} onClick={() => navigateTo('discover')}><IconCompass size={20} /><span>Discover</span></button>
+        <button type="button" className={currentPage === 'scholastic-hub' ? 'active' : ''} onClick={() => navigateTo('scholastic-hub')}><IconSchool size={20} /><span>Hub</span></button>
         <button type="button" onClick={() => showAction('Notifications are available from the header.')}><IconBell size={20} /><span>Alerts</span></button>
         <button type="button" className={currentPage === 'profile' ? 'active' : ''} onClick={() => navigateTo('profile')}><IconUser size={20} /><span>Profile</span></button>
       </nav>}
       {actionMessage && <div className="app-action-feedback" role="status">{actionMessage}</div>}
     </div>
   );
+}
+
+function App() {
+  return <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><AuthAwareRoutes /></BrowserRouter>;
+}
+
+function AuthAwareRoutes() {
+  const location = useLocation();
+  const legacyAppRoutes = ['home', 'library', 'discover', 'scholastic-hub', 'profile', 'settings'];
+  const legacyHash = window.location.hash.slice(1);
+  if (legacyAppRoutes.includes(legacyHash) && location.pathname !== '/complete-profile') return <ProtectedRoute><AppContent /></ProtectedRoute>;
+
+  return <Routes>
+    <Route path="/login" element={<Login />} />
+    <Route path="/register" element={<Register />} />
+    <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
+    <Route path="*" element={<ProtectedRoute><AppContent /></ProtectedRoute>} />
+  </Routes>;
 }
 
 export default App;
