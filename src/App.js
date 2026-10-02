@@ -990,6 +990,9 @@ function NotificationsPage({ onNavigate = () => {} }) {
 }
 
 function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
+  const navigate = useNavigate();
+  const logout = useAppStore((state) => state.logout);
+  const showGlobalAction = useAppStore((state) => state.showAction);
   const [activeSection, setActiveSection] = useState('account');
   const [mobileSectionOpen, setMobileSectionOpen] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState('light');
