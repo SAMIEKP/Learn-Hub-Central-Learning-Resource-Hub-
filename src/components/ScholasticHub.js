@@ -192,6 +192,9 @@ const initialReviewQueue = [
   },
 ];
 
+// Search indexing and ranking are implemented in backend/python/search_algorithms.py.
+// The frontend keeps a small fallback for the static prototype data until it is
+// connected to the Python search endpoint.
 const rankResource = (resource, query) => {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!terms.length) return 1;
