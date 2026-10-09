@@ -6,6 +6,11 @@ const apiClient = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+const searchClient = axios.create({
+  baseURL: process.env.REACT_APP_SEARCH_API_URL || 'http://localhost:5000',
+  timeout: 10000,
+});
+
 apiClient.interceptors.request.use((config) => {
   const token = window.localStorage.getItem('learnhub-access-token');
   if (token) config.headers.Authorization = `Bearer ${token}`;
@@ -18,3 +23,10 @@ apiClient.interceptors.response.use(
 );
 
 export default apiClient;
+
+export const searchResources = async (query, page = 1, perPage = 20) => {
+  const response = await searchClient.get('/search', {
+    params: { q: query, page, per_page: perPage },
+  });
+  return response.data;
+};

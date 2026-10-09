@@ -357,6 +357,7 @@ const discoveryPosts = [
     description: 'Complete guide to laboratory safety protocols and proper equipment handling. Essential for all science students.',
     subject: 'Chemistry',
     duration: '45 mins',
+    videoUrl: 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4',
     likes: 34,
     comments: 6,
     shares: 11,
@@ -418,6 +419,7 @@ const discoveryPosts = [
     description: 'In-depth explanation of wave properties including frequency, amplitude, wavelength, and the physics of sound. Perfect for Form 3 and 4 students.',
     subject: 'Physics',
     duration: '1h 20m',
+    videoUrl: 'https://media.w3.org/2010/05/sintel/trailer.mp4',
     likes: 45,
     comments: 8,
     shares: 13,
@@ -865,7 +867,7 @@ const resourceByTitle = (title) => continueReading.find((resource) => resource.t
 const resourceKey = (resource) => String(resource.id || resource.title);
 const defaultCurrentUser = { id: 'user-samuel', name: 'SAMUEL KP', initials: 'SKP', role: 'Student · Form 3', school: 'Blantyre Secondary School' };
 
-function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defaultCurrentUser }) {
+function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defaultCurrentUser, onOpenSearch, isSearchOpen = false }) {
   const navigate = useNavigate();
   const logout = useAppStore((state) => state.logout);
   const showGlobalAction = useAppStore((state) => state.showAction);
@@ -918,6 +920,7 @@ function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defa
       </button>
       {profileOpen && <div className="header-popover profile-popover"><div className="popover-identity">{profileImage ? <img className="user-avatar header-user-image" src={profileImage} alt={`${user.name} profile`} /> : <span className="user-avatar">{user.initials}</span>}<span><strong>{user.name}</strong><small>{user.role}</small></span></div><div className="popover-links"><a href="#profile" onClick={(event) => { event.preventDefault(); onNavigate('profile'); setProfileOpen(false); }}>View profile</a><a href="#library" onClick={(event) => { event.preventDefault(); onNavigate('library'); setProfileOpen(false); }}>My library</a><a href="#settings" onClick={(event) => { event.preventDefault(); onNavigate('settings'); setProfileOpen(false); }}>Settings</a></div><button type="button" className="popover-signout" onClick={() => { logout(); showGlobalAction('You have been logged out successfully.'); navigate('/login'); setProfileOpen(false); }}><IconLogout size={15} /> Log out</button></div>}
     </div>
+    {onOpenSearch && <button type="button" className="discover-search-trigger" aria-label="Open search" aria-expanded={isSearchOpen} onClick={(event) => { event.stopPropagation(); onOpenSearch(); }}><IconSearch size={19} stroke={2} /></button>}
     <button type="button" className="mobile-settings-trigger" aria-label="Open settings" onClick={() => onNavigate('settings')}><IconSettings size={20} /></button>
     <div className="header-notifications">
       <button type="button" className="notification-button" aria-expanded={notificationsOpen} aria-label={`View ${unreadCount} notifications`} onClick={toggleNotifications}>
@@ -946,7 +949,8 @@ function MobileScholasticMenu({ isOpen, onClose, onNavigate }) {
           ['scholastic-vault', 'Offline Vault', IconDownload],
           ['scholastic-review', 'Review Queue', IconCheck],
           ['scholastic-docs', 'System Guide', IconBook],
-        ].map(([page, label, ItemIcon]) => <button type="button" key={page} className="mobile-scholar-menu-item" onClick={() => onNavigate(page)}><span className="mobile-scholar-menu-icon"><ItemIcon size={18} /></span><span>{label}</span><IconChevronRight size={17} /></button>)}
+          ['publisher-studio', 'Post a book', IconFileText],
+        ].map(([page, label, ItemIcon]) => <button type="button" key={page} className={`mobile-scholar-menu-item ${page === 'publisher-studio' ? 'is-upload-action' : ''}`} onClick={() => onNavigate(page)}><span className="mobile-scholar-menu-icon"><ItemIcon size={18} /></span><span>{label}</span><IconChevronRight size={17} /></button>)}
       </nav>
     </aside>
   </div>;
@@ -1187,15 +1191,22 @@ function PublisherStudioPage({ onNavigate, onAction, onSubmitResource }) {
 function ResourceDetailPage({ resource, returnPage, onNavigate, onAction, onOpenReader, onOpenResource, onOpenPublisher, isInLibrary, isDownloaded, onToggleLibrary, onDownload }) {
   const isVideo = resource.resourceType === 'video';
   const isPaper = resource.resourceType === 'paper';
+  const videoRef = useRef(null);
   if (!isVideo && !isPaper) return <BookDetailsPage resource={resource} returnPage={returnPage} onNavigate={onNavigate} onAction={onAction} onOpenReader={onOpenReader} onOpenResource={onOpenResource} onOpenPublisher={onOpenPublisher} isInLibrary={isInLibrary} isDownloaded={isDownloaded} onToggleLibrary={onToggleLibrary} onDownload={onDownload} />;
   const author = resource.author || resource.board || resource.instructor || resource.teacher || 'Learn Hub library';
+  const startVideo = () => {
+    if (isVideo) {
+      videoRef.current?.play().catch(() => {});
+    }
+    onAction(isVideo ? 'Video lesson started.' : 'Paper added to your study list.');
+  };
   return <div className="product-page resource-detail-page">
     <header className="library-header resource-detail-header"><div className="library-header-content"><div className="page-heading"><h1>{isVideo ? 'Video lesson' : isPaper ? 'Past paper' : 'Book details'}</h1></div><HeaderActions onNavigate={onNavigate} /></div></header>
     <main className="resource-detail-content">
       <button type="button" className="detail-back-button" onClick={() => onNavigate(returnPage)}><IconChevronRight size={16} /> Back to {returnPage === 'home' ? 'Home' : 'Library'}</button>
       <section className="resource-detail-card">
-        {isVideo ? <div className="resource-video-player"><video controls poster={resource.image} preload="metadata"><source src={resource.videoUrl || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'} type="video/mp4" />Your browser does not support video playback.</video><div className="resource-video-caption"><IconPlayerPlay size={16} /> Press play to start the lesson</div></div> : <div className="resource-detail-cover"><img src={resource.image} alt={`${resource.title} cover`} /><span>{isPaper ? 'Paper' : 'Book'}</span></div>}
-        <div className="resource-detail-copy"><span className="eyebrow">{resource.meta || 'Learning resource'}</span><h2>{resource.title}</h2><p className="resource-detail-author">{author}</p><p className="resource-detail-description">{isVideo ? 'Watch this lesson at your own pace, pause when you need to take notes, and return to it from your library.' : isPaper ? 'Review the examination paper, understand its format, and use it to prepare for your next assessment.' : 'Explore this learning resource from Learn Hub and continue building your understanding step by step.'}</p><div className="resource-detail-facts"><span><b>Type</b>{isVideo ? 'Video lesson' : isPaper ? 'Past paper' : 'Study resource'}</span><span><b>{isPaper ? 'Year' : isVideo ? 'Duration' : 'Format'}</b>{resource.year || resource.duration || resource.format || 'Digital resource'}</span><span><b>Rating</b>{resource.rating ? `${resource.rating} / 5` : 'New resource'}</span></div><div className="resource-detail-actions"><button type="button" className="primary-button" onClick={() => onAction(isVideo ? 'Video lesson started.' : isPaper ? 'Paper added to your study list.' : 'Book added to your reading list.')}>{isVideo ? 'Start lesson' : isPaper ? 'Save paper' : 'Start reading'}</button><button type="button" className={`outline-button ${isInLibrary ? 'is-selected' : ''}`} onClick={() => onToggleLibrary?.()}>{isInLibrary ? 'In my library' : 'Save to library'}</button><button type="button" className="outline-button" onClick={() => onDownload?.()}>{isDownloaded ? 'Downloaded' : 'Download'}</button></div></div>
+        {isVideo ? <div className="resource-video-player"><video ref={videoRef} controls playsInline poster={resource.image} preload="metadata"><source src={resource.videoUrl || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'} type="video/mp4" />Your browser does not support video playback.</video><div className="resource-video-caption"><IconPlayerPlay size={16} /> Press play to start the lesson</div></div> : <div className="resource-detail-cover"><img src={resource.image} alt={`${resource.title} cover`} /><span>{isPaper ? 'Paper' : 'Book'}</span></div>}
+        <div className="resource-detail-copy"><span className="eyebrow">{resource.meta || 'Learning resource'}</span><h2>{resource.title}</h2><p className="resource-detail-author">{author}</p><p className="resource-detail-description">{isVideo ? 'Watch this lesson at your own pace, pause when you need to take notes, and return to it from your library.' : isPaper ? 'Review the examination paper, understand its format, and use it to prepare for your next assessment.' : 'Explore this learning resource from Learn Hub and continue building your understanding step by step.'}</p><div className="resource-detail-facts"><span><b>Type</b>{isVideo ? 'Video lesson' : isPaper ? 'Past paper' : 'Study resource'}</span><span><b>{isPaper ? 'Year' : isVideo ? 'Duration' : 'Format'}</b>{resource.year || resource.duration || resource.format || 'Digital resource'}</span><span><b>Rating</b>{resource.rating ? `${resource.rating} / 5` : 'New resource'}</span></div><div className="resource-detail-actions"><button type="button" className="primary-button" onClick={isVideo ? startVideo : () => onAction('Paper added to your study list.')}>{isVideo ? 'Start lesson' : isPaper ? 'Save paper' : 'Start reading'}</button><button type="button" className={`outline-button ${isInLibrary ? 'is-selected' : ''}`} onClick={() => onToggleLibrary?.()}>{isInLibrary ? 'In my library' : 'Save to library'}</button><button type="button" className="outline-button" onClick={() => onDownload?.()}>{isDownloaded ? 'Downloaded' : 'Download'}</button></div></div>
       </section>
     </main>
   </div>;
@@ -1343,6 +1354,8 @@ function AppContent() {
   const [isPostImageDragging, setIsPostImageDragging] = useState(false);
   const [discoverFeedFilter, setDiscoverFeedFilter] = useState('all');
   const [discoverSearch, setDiscoverSearch] = useState('');
+  const [isDiscoverSearchOpen, setIsDiscoverSearchOpen] = useState(false);
+  const [activeReelPost, setActiveReelPost] = useState(null);
   const [feedInteractions, setFeedInteractions] = useLocalStorageState('learnhub-feed-interactions', {});
   const [postComments, setPostComments] = useLocalStorageState('learnhub-post-comments', initialPostComments);
   const [commentDrafts, setCommentDrafts] = useState({});
@@ -1368,6 +1381,23 @@ function AppContent() {
   const recentCommentTimesRef = useRef([]);
   const recentPostTimesRef = useRef([]);
   const feedLoadMoreRef = useRef(null);
+  const feedVideoRefs = useRef(new Map());
+  const reelVideoRef = useRef(null);
+  const reelTouchStartY = useRef(null);
+  const reelNavigationLock = useRef(false);
+
+  useEffect(() => {
+    if (!isDiscoverSearchOpen) return undefined;
+
+    const closeSearchOnOutsideTap = (event) => {
+      if (!event.target.closest('.discover-search-popover, .discover-search-trigger')) {
+        setIsDiscoverSearchOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', closeSearchOnOutsideTap);
+    return () => document.removeEventListener('pointerdown', closeSearchOnOutsideTap);
+  }, [isDiscoverSearchOpen]);
 
   const recordActivity = (type, detail) => {
     const activity = readStoredValue('learnhub-activity-history', []);
@@ -1753,6 +1783,19 @@ function AppContent() {
     return !hiddenPostIds.includes(post.id) && matchesFilter && (!discoverSearch || searchableText.includes(discoverSearch.toLowerCase()));
   });
   const visibleFeedPosts = filteredFeedPosts.slice(0, feedVisibleCount);
+  const reelPosts = filteredFeedPosts.filter((post) => post.type === 'video');
+  const moveToReel = (direction) => {
+    if (!activeReelPost || !reelPosts.length) return;
+    const currentIndex = reelPosts.findIndex((post) => post.id === activeReelPost.id);
+    const nextIndex = (currentIndex + direction + reelPosts.length) % reelPosts.length;
+    setActiveReelPost(reelPosts[nextIndex]);
+  };
+  const navigateReel = (direction) => {
+    if (reelNavigationLock.current) return;
+    reelNavigationLock.current = true;
+    moveToReel(direction);
+    window.setTimeout(() => { reelNavigationLock.current = false; }, 500);
+  };
 
   useEffect(() => {
     setFeedVisibleCount(5);
@@ -1767,6 +1810,48 @@ function AppContent() {
     observer.observe(target);
     return () => observer.disconnect();
   }, [currentPage, visibleFeedPosts.length, filteredFeedPosts.length]);
+
+  useEffect(() => {
+    if (currentPage !== 'discover' || !window.IntersectionObserver) return undefined;
+    const videos = Array.from(feedVideoRefs.current.values()).filter(Boolean);
+    if (!videos.length) return undefined;
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        const video = entry.target;
+        if (entry.isIntersecting && entry.intersectionRatio >= 0.65) {
+          videos.forEach((otherVideo) => {
+            if (otherVideo !== video) otherVideo.pause();
+          });
+          video.muted = true;
+          video.play().catch(() => {});
+        } else if (!entry.isIntersecting) {
+          video.pause();
+        }
+      });
+    }, { threshold: [0.65] });
+
+    videos.forEach((video) => observer.observe(video));
+    return () => observer.disconnect();
+  }, [currentPage, visibleFeedPosts.length]);
+
+  useEffect(() => {
+    if (!activeReelPost) return undefined;
+    const playReel = () => {
+      if (reelVideoRef.current) {
+        reelVideoRef.current.currentTime = 0;
+        reelVideoRef.current.play().catch(() => {});
+      }
+    };
+    playReel();
+    const onKeyDown = (event) => {
+      if (event.key === 'Escape') setActiveReelPost(null);
+      if (event.key === 'ArrowDown') navigateReel(1);
+      if (event.key === 'ArrowUp') navigateReel(-1);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [activeReelPost]);
 
   const highlightSearchText = (value) => {
     if (!value || !discoverSearch.trim()) return value;
@@ -1881,9 +1966,9 @@ function AppContent() {
 
   const handleMainScroll = (event) => {
     const scrollTop = event.currentTarget.scrollTop;
-    if (scrollTop > 50) {
+    if (scrollTop > 24) {
       setIsHeaderShrunk(true);
-    } else if (scrollTop < 20) {
+    } else if (scrollTop < 8) {
       setIsHeaderShrunk(false);
     }
   };
@@ -2004,7 +2089,8 @@ function AppContent() {
                 ['scholastic-vault', 'Offline Vault', IconDownload],
                 ['scholastic-review', 'Review Queue', IconCheck],
                 ['scholastic-docs', 'System Guide', IconBook],
-              ].map(([page, label, ItemIcon]) => <button type="button" key={page} className="mobile-scholar-menu-item" onClick={() => navigateFromMobileMenu(page)}><span className="mobile-scholar-menu-icon"><ItemIcon size={18} /></span><span>{label}</span><IconChevronRight size={17} /></button>)}
+                ['publisher-studio', 'Post a book', IconFileText],
+              ].map(([page, label, ItemIcon]) => <button type="button" key={page} className={`mobile-scholar-menu-item ${page === 'publisher-studio' ? 'is-upload-action' : ''}`} onClick={() => navigateFromMobileMenu(page)}><span className="mobile-scholar-menu-icon"><ItemIcon size={18} /></span><span>{label}</span><IconChevronRight size={17} /></button>)}
             </nav>
           </aside>
         </div>}
@@ -2714,9 +2800,25 @@ function AppContent() {
                       <IconSearch size={16} stroke={2} />
                     </button>
                   </form>
+                  {isDiscoverSearchOpen && <div className="discover-search-popover" role="dialog" aria-label="Search Learn Hub" onClick={(event) => event.stopPropagation()}>
+                    <form className="discover-search-popover-form" onSubmit={(event) => event.preventDefault()}>
+                      <IconSearch size={17} stroke={2} aria-hidden="true" />
+                      <input
+                        type="search"
+                        value={discoverSearch}
+                        onChange={(event) => setDiscoverSearch(event.target.value)}
+                        placeholder="Search Learn Hub..."
+                        className="discover-search-input"
+                        autoFocus
+                      />
+                      <button type="button" className="discover-search-popover-close" aria-label="Close search" onClick={() => setIsDiscoverSearchOpen(false)}>
+                        <IconX size={17} stroke={2} />
+                      </button>
+                    </form>
+                  </div>}
                 </div>
                 <div className="discover-header-right">
-                  <HeaderActions onNavigate={navigateTo} user={currentUser} />
+                  <HeaderActions onNavigate={navigateTo} user={currentUser} onOpenSearch={() => setIsDiscoverSearchOpen(true)} isSearchOpen={isDiscoverSearchOpen} />
                 </div>
               </div>
 
@@ -2876,13 +2978,28 @@ function AppContent() {
                               <div className="feed-resource-meta">
                                 <span className="feed-video-duration">{post.duration}</span>
                               </div>
-                              <div className="feed-resource-image">
-                                <img src={post.image} alt={post.title} />
-                                <div className="feed-video-play-overlay">
-                                  <div className="feed-play-button" aria-label="Play video">
-                                    <IconPlayerPlay size={24} stroke={2.5} />
-                                  </div>
-                                </div>
+                              <div className="feed-resource-image feed-reel-frame">
+                                <video
+                                  ref={(video) => {
+                                    if (video) feedVideoRefs.current.set(post.id, video);
+                                    else feedVideoRefs.current.delete(post.id);
+                                  }}
+                                  className="feed-reel-video"
+                                  playsInline
+                                  muted
+                                  loop
+                                  poster={post.image}
+                                  preload="metadata"
+                                  aria-label={post.title}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    setActiveReelPost(post);
+                                  }}
+                                >
+                                  <source src={post.videoUrl || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'} type="video/mp4" />
+                                  Your browser does not support video playback.
+                                </video>
+                                <span className="feed-reel-hint" aria-hidden="true">Tap to pause or play</span>
                               </div>
                             </>
                           ) : (
@@ -3084,6 +3201,44 @@ function AppContent() {
         ) : null}
       </main>
       {currentPage !== 'home' && <MobileScholasticMenu isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} onNavigate={navigateFromMobileMenu} />}
+      {activeReelPost && createPortal(<div
+        className="discover-reel-backdrop"
+        role="presentation"
+        onWheel={(event) => {
+          if (Math.abs(event.deltaY) > 20) navigateReel(event.deltaY > 0 ? 1 : -1);
+        }}
+        onTouchStart={(event) => { reelTouchStartY.current = event.touches[0].clientY; }}
+        onTouchEnd={(event) => {
+          const startY = reelTouchStartY.current;
+          const endY = event.changedTouches[0].clientY;
+          reelTouchStartY.current = null;
+          if (startY !== null && Math.abs(endY - startY) > 50) navigateReel(endY < startY ? 1 : -1);
+        }}
+      >
+        <div className="discover-reel-viewer" role="dialog" aria-modal="true" aria-label="Video viewer">
+          <button type="button" className="discover-reel-close" aria-label="Close video viewer" onClick={() => setActiveReelPost(null)}><IconX size={22} /></button>
+          <video
+            ref={reelVideoRef}
+            className="discover-reel-video"
+            autoPlay
+            controls
+            playsInline
+            muted
+            loop
+            poster={activeReelPost.image}
+          >
+            <source src={activeReelPost.videoUrl || 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4'} type="video/mp4" />
+            Your browser does not support video playback.
+          </video>
+          <div className="discover-reel-info">
+            <strong>{activeReelPost.title}</strong>
+            <span>{activeReelPost.author} · {activeReelPost.school}</span>
+            <small>Swipe or scroll for the next video</small>
+          </div>
+          <button type="button" className="discover-reel-next discover-reel-prev" aria-label="Previous video" onClick={() => navigateReel(-1)}><IconChevronRight size={24} /></button>
+          <button type="button" className="discover-reel-next" aria-label="Next video" onClick={() => navigateReel(1)}><IconChevronRight size={24} /></button>
+        </div>
+      </div>, document.body)}
       {(pendingFeedAction || reportDialogPost) && createPortal(<div className="feed-confirmation-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeFeedDialogs(); }}>
         {reportDialogPost ? <form ref={feedDialogRef} role="dialog" aria-modal="true" aria-labelledby="report-post-title" className="feed-confirmation-dialog" onSubmit={submitPostReport}>
           <div className="feed-confirmation-heading"><div><span className="eyebrow">Safety review</span><h2 id="report-post-title">Report post</h2></div><button type="button" className="modal-close" aria-label="Close report dialog" onClick={closeFeedDialogs}>×</button></div>

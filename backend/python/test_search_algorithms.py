@@ -38,8 +38,29 @@ class SearchAlgorithmTests(unittest.TestCase):
         self.assertAlmostEqual(cosine_similarity(vectors[0], vectors[0]), 1)
 
     def test_ranks_related_resource_first(self):
-        results = sorted(rank_resources(RESOURCES, "mitosis chromosomes"), key=lambda item: item["score"], reverse=True)
+        results = rank_resources(RESOURCES, "mitosis chromosomes")
         self.assertEqual(results[0]["title"], "Mitosis and meiosis")
+
+    def test_tolerates_common_misspellings(self):
+        results = rank_resources(RESOURCES, "mitoss chromosoms")
+        self.assertEqual(results[0]["title"], "Mitosis and meiosis")
+
+    def test_uses_standard_tfidf_weights_and_bigrams(self):
+        _idf, vectors = build_tfidf_index(RESOURCES)
+        self.assertIn("mitosis meiosis", vectors[0])
+        self.assertAlmostEqual(cosine_similarity(vectors[0], vectors[0]), 1)
+
+    def test_handles_list_tags_and_invalid_rating(self):
+        results = rank_resources(
+            [{"title": "Cell biology", "tags": ["cells", "life"], "rating": "unknown"}],
+            "cells",
+        )
+        self.assertEqual(results[0]["title"], "Cell biology")
+        self.assertGreater(results[0]["score"], 0)
+
+    def test_handles_empty_resources(self):
+        self.assertEqual(build_tfidf_index([]), ({}, []))
+        self.assertEqual(rank_resources([], "biology"), [])
 
 
 if __name__ == "__main__":

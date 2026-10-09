@@ -522,9 +522,9 @@
     width: 100%;
     min-height: calc(100dvh - 20px);
     padding: max(24px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
-    border: 1px solid var(--line);
-    border-radius: 0;
-    box-shadow: none;
+    border: 1px solid rgba(227, 223, 211, 0.75);
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(24, 42, 36, 0.8);
   }
 
   .auth-login-page {
