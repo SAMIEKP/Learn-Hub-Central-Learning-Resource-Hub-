@@ -3,8 +3,7 @@ import { createPortal } from 'react-dom';
 import { BrowserRouter, useLocation, useNavigate, Route, Routes } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import AuthPage from './pages/AuthPage';
 import CompleteProfile from './pages/CompleteProfile';
 import ProtectedRoute from './components/ProtectedRoute';
 import {
@@ -1789,18 +1788,18 @@ function AppContent() {
   });
   const visibleFeedPosts = filteredFeedPosts.slice(0, feedVisibleCount);
   const reelPosts = filteredFeedPosts.filter((post) => post.type === 'video');
-  const moveToReel = (direction) => {
+  const moveToReel = useCallback((direction) => {
     if (!activeReelPost || !reelPosts.length) return;
     const currentIndex = reelPosts.findIndex((post) => post.id === activeReelPost.id);
     const nextIndex = (currentIndex + direction + reelPosts.length) % reelPosts.length;
     setActiveReelPost(reelPosts[nextIndex]);
-  };
-  const navigateReel = (direction) => {
+  }, [activeReelPost, reelPosts]);
+  const navigateReel = useCallback((direction) => {
     if (reelNavigationLock.current) return;
     reelNavigationLock.current = true;
     moveToReel(direction);
     window.setTimeout(() => { reelNavigationLock.current = false; }, 500);
-  };
+  }, [moveToReel]);
 
   useEffect(() => {
     setFeedVisibleCount(5);
@@ -1856,7 +1855,7 @@ function AppContent() {
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [activeReelPost]);
+  }, [activeReelPost, navigateReel]);
 
   const highlightSearchText = (value) => {
     if (!value || !discoverSearch.trim()) return value;
@@ -3274,8 +3273,8 @@ function AuthAwareRoutes() {
   if (legacyAppRoutes.includes(legacyHash) && location.pathname !== '/complete-profile') return <ProtectedRoute><AppContent /></ProtectedRoute>;
 
   return <Routes>
-    <Route path="/login" element={<Login />} />
-    <Route path="/register" element={<Register />} />
+    <Route path="/login" element={<AuthPage />} />
+    <Route path="/register" element={<AuthPage />} />
     <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
     <Route path="*" element={<ProtectedRoute><AppContent /></ProtectedRoute>} />
   </Routes>;

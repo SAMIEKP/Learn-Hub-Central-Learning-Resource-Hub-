@@ -116,32 +116,7 @@
 
 .password-validator {
   margin-top: -4px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--canvas);
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.password-validator-title {
-  display: block;
-  margin-top: 7px;
-  line-height: 1.4;
-}
-
-.password-strength-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  text-transform: capitalize;
-}
-
-.password-strength-heading strong {
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 700;
+  padding: 0;
 }
 
 .password-match.is-valid {
@@ -150,20 +125,22 @@
 
 .password-strength-bar {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 4px;
-  margin-top: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  width: 100%;
+  margin-top: 0;
 }
 
 .password-strength-bar span {
-  height: 4px;
+  height: 6px;
   border-radius: 999px;
   background: #deded7;
+  transition: background 180ms ease, transform 180ms ease;
 }
 
 .strength-weak .password-strength-bar .filled { background: #d35d52; }
 .strength-fair .password-strength-bar .filled { background: #e6a23c; }
-.strength-good .password-strength-bar .filled { background: #b6bd48; }
+.strength-good .password-strength-bar .filled { background: #9aae49; }
 .strength-strong .password-strength-bar .filled { background: #4b9c68; }
 
 .password-match {
@@ -508,6 +485,99 @@
   font-size: 13px;
 }
 
+.auth-register-container {
+  max-width: 560px;
+  padding: 22px 30px;
+}
+
+.auth-register-container .auth-header {
+  margin-bottom: 16px;
+}
+
+.auth-register-container .auth-logo {
+  width: 42px;
+  height: 42px;
+  margin-bottom: 8px;
+  border-radius: 13px;
+}
+
+.auth-register-container .auth-logo-image {
+  width: 28px;
+  height: 28px;
+}
+
+.auth-register-container .auth-header h1 {
+  margin-bottom: 4px;
+  font-size: 25px;
+}
+
+.auth-register-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.auth-register-form .form-group {
+  gap: 5px;
+}
+
+.auth-register-form .form-group label {
+  font-size: 12px;
+}
+
+.auth-register-form .input-wrapper input {
+  padding: 10px 12px 10px 40px;
+  font-size: 13px;
+}
+
+.auth-register-form .password-row input {
+  padding-right: 40px;
+}
+
+.auth-register-form .input-wrapper .input-icon {
+  left: 12px;
+}
+
+.auth-register-form .role-select {
+  min-height: 40px;
+  padding: 9px 12px;
+  font-size: 13px;
+}
+
+.auth-register-form .password-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+}
+
+.auth-register-requirements,
+.auth-register-match,
+.auth-register-terms,
+.auth-register-submit {
+  grid-column: 1;
+}
+
+.auth-register-form .password-validator {
+  margin-top: -2px;
+  padding: 0;
+}
+
+.auth-register-form .auth-button {
+  padding: 11px 18px;
+}
+
+.auth-register-container .auth-divider {
+  margin: 6px 0;
+}
+
+.auth-register-container .social-button {
+  padding: 8px 12px;
+}
+
+.auth-register-container .auth-footer {
+  margin-top: 16px;
+}
+
 /* Responsive Design */
 @media (max-width: 650px) {
   .auth-page {
@@ -545,6 +615,21 @@
     min-height: calc(100dvh - 20px);
     margin: 0 auto;
     padding-bottom: max(32px, env(safe-area-inset-bottom));
+  }
+
+  .auth-register-page .auth-register-container {
+    min-height: auto;
+    margin: 0 auto;
+    padding: 18px 18px max(20px, env(safe-area-inset-bottom));
+  }
+
+  .auth-register-form {
+    gap: 10px;
+  }
+
+  .auth-register-form .password-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
   }
 
   .profile-container {

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { IconMail, IconLock, IconEye, IconEyeOff, IconArrowRight, IconBrandGoogle, IconBrandFacebook } from '@tabler/icons-react';
 import { useAppStore } from '../store/useAppStore';
 import logo from '../logo.svg';
@@ -128,7 +128,7 @@ export default function Login() {
         </div>
 
         <div className="auth-footer">
-          <p>Don't have an account? <a href="/register" className="link">Sign up</a></p>
+          <p>Don't have an account? <Link to="/register" className="link">Sign up</Link></p>
         </div>
       </div>
     </div>

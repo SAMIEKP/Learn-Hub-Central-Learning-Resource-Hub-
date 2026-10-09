@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { IconMail, IconLock, IconUser, IconEye, IconEyeOff, IconArrowRight, IconBrandGoogle, IconBrandFacebook } from '@tabler/icons-react';
 import { useAppStore } from '../store/useAppStore';
@@ -10,7 +10,6 @@ export default function Register() {
   const { showAction, register: registerUser } = useAppStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -27,10 +26,10 @@ export default function Register() {
     special: /[^A-Za-z0-9]/.test(formData.password),
   }), [formData.password]);
   const passwordScore = Object.values(passwordChecks).filter(Boolean).length;
-  const passwordStrength = passwordScore === 0 ? 'empty' : passwordScore <= 1 ? 'weak' : passwordScore === 2 ? 'fair' : passwordScore === 3 ? 'good' : 'strong';
+  const passwordStrength = passwordScore === 0 ? 'empty' : passwordScore === 1 ? 'weak' : passwordScore === 2 ? 'fair' : passwordScore < 5 ? 'good' : 'strong';
   const passwordIsValid = Object.values(passwordChecks).every(Boolean);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
 
     if (!passwordIsValid) {
@@ -43,23 +42,17 @@ export default function Register() {
       return;
     }
 
-    setIsLoading(true);
+    const userData = {
+      id: `user-${Date.now()}`,
+      name: formData.fullName.trim(),
+      email: formData.email.trim().toLowerCase(),
+      role: formData.role.charAt(0).toUpperCase() + formData.role.slice(1),
+      school: 'Not specified',
+    };
 
-    // Simulate registration - replace with actual API call
-    setTimeout(() => {
-      const userData = {
-        id: `user-${Date.now()}`,
-        name: formData.fullName,
-        email: formData.email,
-        role: formData.role.charAt(0).toUpperCase() + formData.role.slice(1),
-        school: 'Not specified',
-      };
-
-      registerUser(userData);
-      showAction('Account created successfully!');
-      setIsLoading(false);
-      navigate('/complete-profile');
-    }, 1000);
+    registerUser(userData);
+    showAction('Account created successfully!');
+    navigate('/complete-profile');
   };
 
   const handleChange = (e) => {
@@ -71,7 +64,7 @@ export default function Register() {
 
   return (
     <div className="auth-page auth-register-page">
-      <div className="auth-container">
+      <div className="auth-container auth-register-container">
         <div className="auth-header">
           <div className="auth-logo">
             <img src={logo} alt="Learn Hub logo" className="auth-logo-image" />
@@ -80,8 +73,8 @@ export default function Register() {
           <p>Join Learn Hub to discover educational resources</p>
         </div>
 
-        <form className="auth-form" onSubmit={handleSubmit}>
-          <div className="form-group">
+        <form className="auth-form auth-register-form" onSubmit={handleSubmit}>
+          <div className="form-group auth-register-name">
             <label htmlFor="fullName">Full name</label>
             <div className="input-wrapper">
               <IconUser size={18} className="input-icon" />
@@ -98,7 +91,7 @@ export default function Register() {
             </div>
           </div>
 
-          <div className="form-group">
+          <div className="form-group auth-register-email">
             <label htmlFor="email">Email address</label>
             <div className="input-wrapper">
               <IconMail size={18} className="input-icon" />
@@ -115,7 +108,7 @@ export default function Register() {
             </div>
           </div>
 
-          <div className="form-group">
+          <div className="form-group auth-register-role">
             <label htmlFor="role">I am a</label>
             <select id="role" name="role" className="role-select" value={formData.role} onChange={handleChange}>
               <option value="student">Student</option>
@@ -123,7 +116,7 @@ export default function Register() {
             </select>
           </div>
 
-          <div className="password-row">
+          <div className="password-row auth-register-passwords">
             <div className="form-group">
               <label htmlFor="password">Password</label>
               <div className={`input-wrapper ${formData.password && !passwordIsValid ? 'input-invalid' : ''}`}>
@@ -143,25 +136,31 @@ export default function Register() {
             </div>
           </div>
 
-          <div id="password-requirements" className={`password-validator strength-${passwordStrength}`} aria-live="polite">
-            <div className="password-strength-heading"><span>Password strength</span><strong>{passwordStrength === 'empty' ? 'Enter a password' : passwordStrength}</strong></div>
-            <div className="password-strength-bar" aria-label={`Password strength: ${passwordStrength}`}>
-              {[1, 2, 3, 4].map((segment) => <span key={segment} className={passwordScore >= segment ? 'filled' : ''} />)}
+          <div id="password-requirements" className={`password-validator auth-register-requirements strength-${passwordStrength}`}>
+            <div
+              className="password-strength-bar"
+              role="meter"
+              aria-label="Password strength"
+              aria-valuemin="0"
+              aria-valuemax={Object.keys(passwordChecks).length}
+              aria-valuenow={passwordScore}
+              aria-valuetext={passwordStrength === 'empty' ? 'No password entered' : `${passwordStrength} password`}
+            >
+              {[1, 2, 3, 4, 5].map((segment) => <span key={segment} className={passwordScore >= segment ? 'filled' : ''} />)}
             </div>
-            <small className="password-validator-title">Use 8+ characters with uppercase, lowercase, a number, and a special character.</small>
           </div>
-          {formData.confirmPassword && <small id="password-match" className={`password-match ${formData.password === formData.confirmPassword ? 'is-valid' : ''}`}>{formData.password === formData.confirmPassword ? 'Passwords match' : 'Passwords do not match'}</small>}
+          {formData.confirmPassword && <small id="password-match" className={`password-match auth-register-match ${formData.password === formData.confirmPassword ? 'is-valid' : ''}`}>{formData.password === formData.confirmPassword ? 'Passwords match' : 'Passwords do not match'}</small>}
 
-          <div className="form-actions">
+          <div className="form-actions auth-register-terms">
             <label className="checkbox-label">
               <input type="checkbox" name="terms" required />
               <span>I agree to the <a href="#terms" className="link">Terms of Service</a> and <a href="#privacy" className="link">Privacy Policy</a></span>
             </label>
           </div>
 
-          <button type="submit" className="auth-button primary" disabled={isLoading}>
-            {isLoading ? 'Creating account...' : 'Create account'}
-            {!isLoading && <IconArrowRight size={18} />}
+          <button type="submit" className="auth-button primary auth-register-submit">
+            Create account
+            <IconArrowRight size={18} />
           </button>
         </form>
 
@@ -172,7 +171,7 @@ export default function Register() {
         </div>
 
         <div className="auth-footer">
-          <p>Already have an account? <a href="/login" className="link">Sign in</a></p>
+          <p>Already have an account? <Link to="/login" className="link">Sign in</Link></p>
         </div>
       </div>
     </div>
