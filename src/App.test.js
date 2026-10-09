@@ -68,3 +68,25 @@ test('navigates to Scholastic Hub with library-style header and functional tabs'
   fireEvent.click(within(scholasticNav).getByRole('button', { name: /offline vault/i }));
   expect(screen.getByRole('heading', { name: /offline vault manager/i })).toBeInTheDocument();
 });
+
+test('header matches library style across settings, post resource, and reading views', () => {
+  render(<App />);
+
+  // 1. Settings page header
+  fireEvent.click(screen.getByRole('link', { name: /settings/i }));
+  const settingsHeader = document.querySelector('header.library-header.settings-page-header');
+  expect(settingsHeader).toBeInTheDocument();
+  expect(within(settingsHeader).getByRole('heading', { name: /settings/i, level: 1 })).toBeInTheDocument();
+
+  // 2. Post resource page header
+  fireEvent.click(screen.getByRole('button', { name: /post a book/i }));
+  const postHeader = document.querySelector('header.library-header.resource-detail-header');
+  expect(postHeader).toBeInTheDocument();
+  expect(within(postHeader).getByRole('heading', { name: /post a resource/i, level: 1 })).toBeInTheDocument();
+
+  // 3. Library page header
+  fireEvent.click(screen.getByRole('link', { name: /library/i }));
+  const libraryHeader = document.querySelector('header.library-header');
+  expect(libraryHeader).toBeInTheDocument();
+  expect(within(libraryHeader).getByRole('heading', { name: /library/i, level: 1 })).toBeInTheDocument();
+});

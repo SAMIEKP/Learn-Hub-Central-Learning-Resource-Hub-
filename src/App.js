@@ -820,6 +820,10 @@ const departmentResources = [
 ];
 
 const categories = [
+  { name: 'Form 1 Resources', count: '74 resources', image: 'https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=300&q=80', color: 'category-blue' },
+  { name: 'Form 2 Resources', count: '88 resources', image: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=300&q=80', color: 'category-cream' },
+  { name: 'Form 3 Resources', count: '105 resources', image: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=300&q=80', color: 'category-purple' },
+  { name: 'Form 4 Resources', count: '119 resources', image: 'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=300&q=80', color: 'category-green' },
   { name: 'Sciences & Technology', count: '142 resources', image: 'https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=300&q=80', color: 'category-purple' },
   { name: 'Mathematics Department', count: '98 resources', image: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=300&q=80', color: 'category-cream' },
   { name: 'Languages Department', count: '86 resources', image: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=300&q=80', color: 'category-blue' },
@@ -1038,7 +1042,8 @@ function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
 }
 
 function ResourceListPage({ title, items, onNavigate, onOpenResource }) {
-  return <div className="product-page resource-list-page">
+  const pageVariant = title === 'Past papers' ? 'past-papers-page' : title === 'Book recommendations' ? 'book-recommendations-page' : title === 'Resource categories' ? 'resource-categories-page' : '';
+  return <div className={`product-page resource-list-page ${pageVariant}`}>
     <header className="library-header resource-list-header"><div className="library-header-content"><div className="page-heading"><h1>{title}</h1></div><HeaderActions onNavigate={onNavigate} /></div></header>
     <div className="resource-list-content">
       <div className="resource-list-heading"><span className="eyebrow">Learn Hub library</span><p>Select a resource to view its information.</p></div>
@@ -1200,7 +1205,7 @@ function ResourceDetailPage({ resource, returnPage, onNavigate, onAction, onOpen
     }
     onAction(isVideo ? 'Video lesson started.' : 'Paper added to your study list.');
   };
-  return <div className="product-page resource-detail-page">
+  return <div className={`product-page resource-detail-page${isPaper ? ' past-paper-detail-page' : ''}`}>
     <header className="library-header resource-detail-header"><div className="library-header-content"><div className="page-heading"><h1>{isVideo ? 'Video lesson' : isPaper ? 'Past paper' : 'Book details'}</h1></div><HeaderActions onNavigate={onNavigate} /></div></header>
     <main className="resource-detail-content">
       <button type="button" className="detail-back-button" onClick={() => onNavigate(returnPage)}><IconChevronRight size={16} /> Back to {returnPage === 'home' ? 'Home' : 'Library'}</button>
@@ -2178,7 +2183,30 @@ function AppContent() {
             </div>
           </section>
 
-          {/* 2. Book Recommendation Section */}
+          {/* 2. Resource Categories */}
+          <section className="shelf-section category-section" id="categories" aria-labelledby="categories-heading">
+            <div className="section-heading">
+              <div>
+                <h2 id="categories-heading">Resource Categories</h2>
+              </div>
+              <button type="button" className="more-button" aria-label="More category options">View all categories</button>
+            </div>
+            <div className="category-shelf">
+              {categories.map((category) => (
+                <a href={`#${category.name.toLowerCase().replace(/[^a-z]+/g, '-')}`} className="category-card" key={category.name}>
+                  <span className={`category-image ${category.color}`}>
+                    <img src={category.image} alt="" />
+                  </span>
+                  <div className="category-text-wrap">
+                    <strong>{category.name}</strong>
+                    <span className="category-count">{category.count}</span>
+                  </div>
+                </a>
+              ))}
+            </div>
+          </section>
+
+          {/* 3. Book Recommendation Section */}
           <section className="shelf-section recommendation-section" aria-labelledby="recommendations-heading">
             <div className="section-heading">
               <div>
@@ -2486,29 +2514,6 @@ function AppContent() {
                     </div>
                   </article>
                 ))}
-            </div>
-          </section>
-
-          {/* 9. Resource Categories */}
-          <section className="shelf-section category-section" id="categories" aria-labelledby="categories-heading">
-            <div className="section-heading">
-              <div>
-                <h2 id="categories-heading">Resource Categories</h2>
-              </div>
-              <button type="button" className="more-button" aria-label="More category options">View all categories</button>
-            </div>
-            <div className="category-shelf">
-              {categories.map((category) => (
-                <a href={`#${category.name.toLowerCase().replace(/[^a-z]+/g, '-')}`} className="category-card" key={category.name}>
-                  <span className={`category-image ${category.color}`}>
-                    <img src={category.image} alt="" />
-                  </span>
-                  <div className="category-text-wrap">
-                    <strong>{category.name}</strong>
-                    <span className="category-count">{category.count}</span>
-                  </div>
-                </a>
-              ))}
             </div>
           </section>
 
