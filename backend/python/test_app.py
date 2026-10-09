@@ -1,6 +1,7 @@
 import unittest
+from unittest.mock import patch
 
-from app import create_app
+from app import AssistantRateLimiter, create_app
 
 
 class SearchApiTests(unittest.TestCase):
@@ -68,18 +69,23 @@ class SearchApiTests(unittest.TestCase):
                 "sources": [{"resource_id": "approved", "title": "Cell Biology"}],
             }
 
-        client = create_app(lambda: resources, respond).test_client()
+        client = create_app(
+            assistant_responder=respond,
+            assistant_user_loader=lambda _token: resources,
+            token_verifier=lambda token: {"id": "student-1"} if token == "valid-token" else {},
+        ).test_client()
         response = client.post("/assistant/chat", json={
             "question": "What is a cell?",
             "context": {"resource_id": "approved", "title": "Cell Biology"},
             "history": [{"role": "user", "content": "Tell me about cells"}],
-        })
+        }, headers={"Authorization": "Bearer valid-token"})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(received["question"], "What is a cell?")
         self.assertEqual([resource["id"] for resource in received["resources"]], ["approved"])
         self.assertEqual(received["context"]["resource_id"], "approved")
         self.assertEqual(response.get_json()["sources"][0]["title"], "Cell Biology")
+        self.assertFalse(response.get_json()["needsTeacherHelp"])
 
     def test_assistant_validates_question(self):
         response = self.client.post("/assistant/chat", json={"question": " "})
@@ -87,14 +93,106 @@ class SearchApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("non-empty", response.get_json()["error"])
 
-    def test_assistant_reports_resource_store_configuration_error(self):
-        client = create_app(lambda: (_ for _ in ()).throw(
-            RuntimeError("SUPABASE_URL is required")
+    def test_assistant_rejects_missing_or_invalid_authentication(self):
+        verification_calls = []
+        client = create_app(token_verifier=lambda token: (
+            verification_calls.append(token) or {}
         )).test_client()
 
-        response = client.post("/assistant/chat", json={"question": "Explain cells"})
+        missing = client.post("/assistant/chat", json={"question": "Explain cells"})
+        invalid = client.post(
+            "/assistant/chat",
+            json={"question": "Explain cells"},
+            headers={"Authorization": "Bearer invalid-token"},
+        )
+
+        self.assertEqual(missing.status_code, 401)
+        self.assertEqual(invalid.status_code, 401)
+        self.assertEqual(verification_calls, ["invalid-token"])
+
+    def test_assistant_rate_limits_by_verified_user(self):
+        calls = []
+
+        def allow_first_request(user_id):
+            calls.append(user_id)
+            return len(calls) == 1
+
+        client = create_app(
+            assistant_user_loader=lambda _token: [],
+            token_verifier=lambda _token: {"id": "student-1"},
+            assistant_rate_limiter=allow_first_request,
+        ).test_client()
+        headers = {"Authorization": "Bearer valid-token"}
+
+        allowed = client.post("/assistant/chat", json={"question": "Explain cells"}, headers=headers)
+        limited = client.post("/assistant/chat", json={"question": "Explain cells"}, headers=headers)
+
+        self.assertEqual(allowed.status_code, 200)
+        self.assertTrue(allowed.get_json()["needsTeacherHelp"])
+        self.assertEqual(limited.status_code, 429)
+        self.assertEqual(limited.headers["Retry-After"], "60")
+        self.assertEqual(calls, ["student-1", "student-1"])
+
+    def test_rate_limiter_applies_sliding_window_per_user(self):
+        limiter = AssistantRateLimiter(limit=2, window_seconds=60)
+
+        with patch("app.time.monotonic", side_effect=[100, 100, 100, 161]):
+            self.assertTrue(limiter.allow("student-1"))
+            self.assertTrue(limiter.allow("student-1"))
+            self.assertFalse(limiter.allow("student-1"))
+            self.assertTrue(limiter.allow("student-1"))
+
+    def test_assistant_rejects_questions_over_the_length_limit(self):
+        verification_calls = []
+        client = create_app(
+            token_verifier=lambda token: (
+                verification_calls.append(token) or {"id": "student-1"}
+            ),
+        ).test_client()
+
+        response = client.post(
+            "/assistant/chat",
+            json={"question": "x" * 1001},
+            headers={"Authorization": "Bearer valid-token"},
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(verification_calls, [])
+
+    def test_assistant_validates_history_size_and_conversation_identifier(self):
+        client = create_app(
+            token_verifier=lambda _token: {"id": "student-1"},
+        ).test_client()
+        headers = {"Authorization": "Bearer valid-token"}
+
+        excessive_history = client.post("/assistant/chat", json={
+            "question": "Explain cells",
+            "history": [{"role": "user", "content": "Question"}] * 7,
+        }, headers=headers)
+        invalid_id = client.post("/assistant/chat", json={
+            "question": "Explain cells",
+            "conversation_id": "not-a-uuid",
+        }, headers=headers)
+
+        self.assertEqual(excessive_history.status_code, 400)
+        self.assertEqual(invalid_id.status_code, 400)
+
+    def test_assistant_reports_resource_store_configuration_error(self):
+        client = create_app(
+            assistant_user_loader=lambda _token: (_ for _ in ()).throw(
+                RuntimeError("SUPABASE_URL is required")
+            ),
+            token_verifier=lambda _token: {"id": "student-1"},
+        ).test_client()
+
+        response = client.post(
+            "/assistant/chat",
+            json={"question": "Explain cells"},
+            headers={"Authorization": "Bearer valid-token"},
+        )
 
         self.assertEqual(response.status_code, 503)
+        self.assertNotIn("SUPABASE_URL", response.get_json()["error"])
 
 
 if __name__ == "__main__":

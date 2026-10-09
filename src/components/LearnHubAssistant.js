@@ -4,6 +4,12 @@ import { askLearnHubAssistant } from '../api/client';
 import './LearnHubAssistant.css';
 
 const GREETING = 'Hi! I’m the LearnHub Assistant. Ask me a simple question or ask about the resource you’re viewing.';
+const contextField = (value) => (typeof value === 'string' ? value.slice(0, 200) : undefined);
+const SUGGESTED_QUESTIONS = [
+  'Explain a difficult topic',
+  'Help me revise for an exam',
+  'Find a useful resource',
+];
 
 export default function LearnHubAssistant({ currentPage, resource, onOpenResource }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -20,11 +26,11 @@ export default function LearnHubAssistant({ currentPage, resource, onOpenResourc
   const resourceContext = useMemo(() => {
     if (!resource || !['resource', 'reader'].includes(currentPage)) return undefined;
     return {
-      resource_id: resource.id ? String(resource.id) : undefined,
-      title: resource.title,
-      subject: resource.subject || resource.meta?.split('·')[0]?.trim(),
-      topic: resource.topic,
-      resource_type: resource.resourceType || resource.type,
+      resource_id: resource.id ? contextField(String(resource.id)) : undefined,
+      title: contextField(resource.title),
+      subject: contextField(resource.subject || resource.meta?.split('·')[0]?.trim()),
+      topic: contextField(resource.topic),
+      resource_type: contextField(resource.resourceType || resource.type),
     };
   }, [currentPage, resource]);
 
@@ -73,7 +79,7 @@ export default function LearnHubAssistant({ currentPage, resource, onOpenResourc
           .slice(-6)
           .map((message) => ({
             role: message.role === 'assistant' ? 'model' : 'user',
-            content: message.content,
+            content: message.content.slice(0, 1000),
           })),
       });
       if (typeof response?.answer !== 'string' || !Array.isArray(response.sources)) {
@@ -89,6 +95,7 @@ export default function LearnHubAssistant({ currentPage, resource, onOpenResourc
       const message = error.response?.data?.error
         || error.message
         || 'I couldn’t connect to the LearnHub Assistant. Please try again.';
+      setQuestion(text);
       setMessages((current) => [...current, {
         id: `error-${Date.now()}`,
         role: 'error',
@@ -127,11 +134,11 @@ export default function LearnHubAssistant({ currentPage, resource, onOpenResourc
           <header className="learnhub-assistant-header">
             <div className="learnhub-assistant-identity">
               <span className="learnhub-assistant-mark" aria-hidden="true">
-                <IconMessageCircle size={19} />
+                <img src={`${process.env.PUBLIC_URL}/web-app-manifest-192x192.png`} alt="" />
               </span>
               <span>
                 <strong>LearnHub Assistant</strong>
-                {!isMinimized && <small>Here to help you learn</small>}
+                {!isMinimized && <small>Your study companion</small>}
               </span>
             </div>
             <div className="learnhub-assistant-controls">
@@ -170,34 +177,64 @@ export default function LearnHubAssistant({ currentPage, resource, onOpenResourc
             <>
               <div className="learnhub-assistant-messages" role="log" aria-live="polite" aria-relevant="additions text">
                 {messages.map((message) => (
-                  <article key={message.id} className={`learnhub-assistant-message is-${message.role}`}>
-                    <p>{message.content}</p>
-                    {message.sources?.length > 0 && (
-                      <div className="learnhub-assistant-sources">
-                        <span>LearnHub resources</span>
-                        {message.sources.map((source) => (
-                          <button
-                            key={source.resource_id}
-                            type="button"
-                            onClick={() => openSource(source)}
-                          >
-                            {source.citation_numbers?.length > 0 && (
-                              <span className="learnhub-assistant-citation-number">
-                                {source.citation_numbers.map((number) => `[${number}]`).join(' ')}
-                              </span>
-                            )}
-                            {source.title}
-                            {source.topic && <small>{source.topic}</small>}
-                          </button>
-                        ))}
-                      </div>
+                  <div key={message.id} className={`learnhub-assistant-message-row is-${message.role}`}>
+                    {message.role === 'assistant' && (
+                      <img
+                        className="learnhub-assistant-message-avatar"
+                        src={`${process.env.PUBLIC_URL}/web-app-manifest-192x192.png`}
+                        alt="Learn Hub assistant"
+                      />
                     )}
-                  </article>
+                    <article className={`learnhub-assistant-message is-${message.role}`}>
+                      <p>{message.content}</p>
+                      {message.sources?.length > 0 && (
+                        <div className="learnhub-assistant-sources">
+                          <span>Sources from LearnHub</span>
+                          {message.sources.map((source) => (
+                            <button
+                              key={source.resource_id}
+                              type="button"
+                              onClick={() => openSource(source)}
+                            >
+                              {source.citation_numbers?.length > 0 && (
+                                <span className="learnhub-assistant-citation-number">
+                                  {source.citation_numbers.map((number) => `[${number}]`).join(' ')}
+                                </span>
+                              )}
+                              {source.title}
+                              {source.topic && <small>{source.topic}</small>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  </div>
                 ))}
+                {messages.length === 1 && !isLoading && (
+                  <div className="learnhub-assistant-suggestions" aria-label="Suggested questions">
+                    <span>Try asking</span>
+                    {SUGGESTED_QUESTIONS.map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => setQuestion(suggestion)}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {isLoading && (
-                  <div className="learnhub-assistant-loading" role="status">
-                    <span /><span /><span />
-                    <span className="visually-hidden">LearnHub Assistant is preparing an answer</span>
+                  <div className="learnhub-assistant-message-row is-assistant">
+                    <img
+                      className="learnhub-assistant-message-avatar"
+                      src={`${process.env.PUBLIC_URL}/web-app-manifest-192x192.png`}
+                      alt=""
+                    />
+                    <div className="learnhub-assistant-loading" role="status">
+                      <span /><span /><span />
+                      <span className="visually-hidden">LearnHub Assistant is preparing an answer</span>
+                    </div>
                   </div>
                 )}
                 <div ref={messagesEndRef} />

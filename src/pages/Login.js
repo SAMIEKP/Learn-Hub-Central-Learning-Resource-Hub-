@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { IconMail, IconLock, IconEye, IconEyeOff, IconArrowRight, IconBrandGoogle, IconBrandFacebook } from '@tabler/icons-react';
 import { useAppStore } from '../store/useAppStore';
+import { supabase } from '../lib/supabaseClient';
 import logo from '../logo.svg';
 import './Auth.css';
 
@@ -19,7 +20,36 @@ export default function Login() {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate login - replace with actual API call
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: formData.email.trim().toLowerCase(),
+          password: formData.password,
+        });
+        if (error || !data?.user) {
+          showAction(error?.message || 'Unable to sign in. Please check your details.');
+          return;
+        }
+        const metadata = data.user.user_metadata || {};
+        const name = metadata.full_name || metadata.name || data.user.email?.split('@')[0] || 'LearnHub Student';
+        login({
+          id: data.user.id,
+          name,
+          email: data.user.email,
+          role: metadata.role === 'teacher' ? 'Teacher' : 'Student',
+          school: metadata.school || 'Not specified',
+          form: metadata.form || '',
+        });
+        showAction('Login successful! Welcome back.');
+        navigate('/');
+      } catch {
+        showAction('Unable to sign in right now. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
+
     setTimeout(() => {
       const userData = {
         id: 'user-1',

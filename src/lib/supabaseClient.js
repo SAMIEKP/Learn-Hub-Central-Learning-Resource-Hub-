@@ -22,3 +22,9 @@ export function requireSupabase() {
 
   return supabase;
 }
+
+export async function clearSupabaseSession() {
+  if (!supabase) return;
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
+  if (error) throw error;
+}

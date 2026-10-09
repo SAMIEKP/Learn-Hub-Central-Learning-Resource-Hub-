@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { IconMail, IconLock, IconUser, IconEye, IconEyeOff, IconArrowRight, IconBrandGoogle, IconBrandFacebook } from '@tabler/icons-react';
 import { useAppStore } from '../store/useAppStore';
+import { supabase } from '../lib/supabaseClient';
 import logo from '../logo.svg';
 import './Auth.css';
 
@@ -10,6 +11,7 @@ export default function Register() {
   const { showAction, register: registerUser } = useAppStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -29,7 +31,7 @@ export default function Register() {
   const passwordStrength = passwordScore === 0 ? 'empty' : passwordScore === 1 ? 'weak' : passwordScore === 2 ? 'fair' : passwordScore < 5 ? 'good' : 'strong';
   const passwordIsValid = Object.values(passwordChecks).every(Boolean);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!passwordIsValid) {
@@ -42,13 +44,47 @@ export default function Register() {
       return;
     }
 
+    const normalizedEmail = formData.email.trim().toLowerCase();
     const userData = {
       id: `user-${Date.now()}`,
       name: formData.fullName.trim(),
-      email: formData.email.trim().toLowerCase(),
+      email: normalizedEmail,
       role: formData.role.charAt(0).toUpperCase() + formData.role.slice(1),
       school: 'Not specified',
     };
+
+    if (supabase) {
+      setIsLoading(true);
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email: normalizedEmail,
+          password: formData.password,
+          options: {
+            data: {
+              full_name: userData.name,
+              role: formData.role,
+            },
+          },
+        });
+        if (error || !data?.user) {
+          showAction(error?.message || 'Unable to create your account. Please try again.');
+          return;
+        }
+        if (!data.session) {
+          showAction('Check your email to confirm your account, then sign in.');
+          navigate('/login');
+          return;
+        }
+        registerUser({ ...userData, id: data.user.id });
+        showAction('Account created successfully!');
+        navigate('/complete-profile');
+      } catch {
+        showAction('Unable to create your account right now. Please try again.');
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     registerUser(userData);
     showAction('Account created successfully!');
@@ -158,9 +194,9 @@ export default function Register() {
             </label>
           </div>
 
-          <button type="submit" className="auth-button primary auth-register-submit">
-            Create account
-            <IconArrowRight size={18} />
+          <button type="submit" className="auth-button primary auth-register-submit" disabled={isLoading}>
+            {isLoading ? 'Creating account...' : 'Create account'}
+            {!isLoading && <IconArrowRight size={18} />}
           </button>
         </form>
 

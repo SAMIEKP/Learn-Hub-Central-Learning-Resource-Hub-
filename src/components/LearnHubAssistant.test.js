@@ -17,6 +17,8 @@ test('opens with a greeting and keeps sending disabled for an empty question', (
 
   expect(screen.getByRole('dialog', { name: /learnhub assistant chat/i })).toBeInTheDocument();
   expect(screen.getByText(/hi! i’m the learnhub assistant/i)).toBeInTheDocument();
+  expect(screen.getByAltText('Learn Hub assistant')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: /explain a difficult topic/i })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /send question/i })).toBeDisabled();
 });
 
@@ -88,4 +90,23 @@ test('sends a question with resource context and opens returned citations', asyn
     title: 'Cell Structure Notes',
   }));
   expect(screen.queryByRole('dialog', { name: /learnhub assistant chat/i })).not.toBeInTheDocument();
+});
+
+test('restores a failed question so the student can retry it', async () => {
+  askLearnHubAssistant
+    .mockRejectedValueOnce({ response: { data: { error: 'The service is unavailable. Please try again.' } } })
+    .mockResolvedValueOnce({ answer: 'Cells are basic units of life [1].', sources: [] });
+  render(<LearnHubAssistant currentPage="home" onOpenResource={jest.fn()} />);
+
+  fireEvent.click(screen.getByRole('button', { name: /ask learnhub/i }));
+  const input = screen.getByRole('textbox', { name: /ask a question/i });
+  fireEvent.change(input, { target: { value: 'Explain cells' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+
+  expect(await screen.findByText(/service is unavailable/i)).toBeInTheDocument();
+  expect(input).toHaveValue('Explain cells');
+
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(await screen.findByText(/cells are basic units of life/i)).toBeInTheDocument();
+  expect(askLearnHubAssistant).toHaveBeenCalledTimes(2);
 });

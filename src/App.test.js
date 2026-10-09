@@ -15,6 +15,45 @@ test('renders learn hub brand title', () => {
   expect(screen.getByRole('link', { name: /learn hub/i })).toBeInTheDocument();
 });
 
+test('home resource filters show only the matching resource shelves', () => {
+  render(<App />);
+
+  const booksShelf = document.querySelector('.recommendation-section');
+  const papersShelf = document.querySelector('.past-papers-section');
+  const schoolShelf = document.querySelector('.school-uploads-section');
+  const followedSchoolsShelf = document.querySelector('.followed-schools-section');
+
+  expect(booksShelf).not.toHaveAttribute('hidden');
+  expect(papersShelf).not.toHaveAttribute('hidden');
+  expect(schoolShelf).not.toHaveAttribute('hidden');
+  expect(followedSchoolsShelf).not.toHaveAttribute('hidden');
+
+  fireEvent.click(screen.getByRole('button', { name: /books & notes/i }));
+  expect(screen.getByRole('button', { name: /books & notes/i })).toHaveAttribute('aria-pressed', 'true');
+  expect(booksShelf).not.toHaveAttribute('hidden');
+  expect(papersShelf).toHaveAttribute('hidden');
+  expect(schoolShelf).toHaveAttribute('hidden');
+
+  fireEvent.click(screen.getByRole('button', { name: /past papers/i }));
+  expect(screen.getByRole('button', { name: /past papers/i })).toHaveAttribute('aria-pressed', 'true');
+  expect(booksShelf).toHaveAttribute('hidden');
+  expect(papersShelf).not.toHaveAttribute('hidden');
+  expect(schoolShelf).toHaveAttribute('hidden');
+
+  fireEvent.click(screen.getByRole('button', { name: /school uploads/i }));
+  expect(screen.getByRole('button', { name: /school uploads/i })).toHaveAttribute('aria-pressed', 'true');
+  expect(booksShelf).toHaveAttribute('hidden');
+  expect(papersShelf).toHaveAttribute('hidden');
+  expect(schoolShelf).not.toHaveAttribute('hidden');
+  expect(followedSchoolsShelf).not.toHaveAttribute('hidden');
+
+  fireEvent.click(screen.getByRole('button', { name: /all resources/i }));
+  expect(screen.getByRole('button', { name: /all resources/i })).toHaveAttribute('aria-pressed', 'true');
+  expect(booksShelf).not.toHaveAttribute('hidden');
+  expect(papersShelf).not.toHaveAttribute('hidden');
+  expect(schoolShelf).not.toHaveAttribute('hidden');
+});
+
 test('shows the discover filters as icon-only buttons', () => {
   render(<App />);
 

@@ -61,6 +61,7 @@ import ScholasticHub from './components/ScholasticHub';
 import FileDropzone from './components/FileDropzone';
 import { useAppStore } from './store/useAppStore';
 import { formatDate } from './utils/date';
+import { clearSupabaseSession } from './lib/supabaseClient';
 
 const libraryItems = [
   {
@@ -875,6 +876,17 @@ function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defa
   const navigate = useNavigate();
   const logout = useAppStore((state) => state.logout);
   const showGlobalAction = useAppStore((state) => state.showAction);
+  const handleLogout = async () => {
+    try {
+      await clearSupabaseSession();
+      logout();
+      showGlobalAction('You have been logged out successfully.');
+      navigate('/login');
+      setProfileOpen(false);
+    } catch {
+      showGlobalAction('Unable to sign out right now. Please try again.');
+    }
+  };
   const headerActionsRef = useRef(null);
   const storedProfile = readStoredValue('learnhub-profile-details', {});
   const profileImage = user.image || storedProfile.image;
@@ -922,7 +934,7 @@ function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defa
         {profileImage ? <img className="user-avatar header-user-image" src={profileImage} alt={`${user.name} profile`} /> : <span className="user-avatar">{user.initials}</span>}
         <span className="user-name">{user.name}</span>
       </button>
-      {profileOpen && <div className="header-popover profile-popover"><div className="popover-identity">{profileImage ? <img className="user-avatar header-user-image" src={profileImage} alt={`${user.name} profile`} /> : <span className="user-avatar">{user.initials}</span>}<span><strong>{user.name}</strong><small>{user.role}</small></span></div><div className="popover-links"><a href="#profile" onClick={(event) => { event.preventDefault(); onNavigate('profile'); setProfileOpen(false); }}>View profile</a><a href="#library" onClick={(event) => { event.preventDefault(); onNavigate('library'); setProfileOpen(false); }}>My library</a><a href="#settings" onClick={(event) => { event.preventDefault(); onNavigate('settings'); setProfileOpen(false); }}>Settings</a></div><button type="button" className="popover-signout" onClick={() => { logout(); showGlobalAction('You have been logged out successfully.'); navigate('/login'); setProfileOpen(false); }}><IconLogout size={15} /> Log out</button></div>}
+      {profileOpen && <div className="header-popover profile-popover"><div className="popover-identity">{profileImage ? <img className="user-avatar header-user-image" src={profileImage} alt={`${user.name} profile`} /> : <span className="user-avatar">{user.initials}</span>}<span><strong>{user.name}</strong><small>{user.role}</small></span></div><div className="popover-links"><a href="#profile" onClick={(event) => { event.preventDefault(); onNavigate('profile'); setProfileOpen(false); }}>View profile</a><a href="#library" onClick={(event) => { event.preventDefault(); onNavigate('library'); setProfileOpen(false); }}>My library</a><a href="#settings" onClick={(event) => { event.preventDefault(); onNavigate('settings'); setProfileOpen(false); }}>Settings</a></div><button type="button" className="popover-signout" onClick={() => void handleLogout()}><IconLogout size={15} /> Log out</button></div>}
     </div>
     {onOpenSearch && <button type="button" className="discover-search-trigger" aria-label="Open search" aria-expanded={isSearchOpen} onClick={(event) => { event.stopPropagation(); onOpenSearch(); }}><IconSearch size={19} stroke={2} /></button>}
     <button type="button" className="mobile-settings-trigger" aria-label="Open settings" onClick={() => onNavigate('settings')}><IconSettings size={20} /></button>
@@ -1001,6 +1013,16 @@ function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
   const navigate = useNavigate();
   const logout = useAppStore((state) => state.logout);
   const showGlobalAction = useAppStore((state) => state.showAction);
+  const handleLogout = async () => {
+    try {
+      await clearSupabaseSession();
+      logout();
+      showGlobalAction('You have been logged out successfully.');
+      navigate('/login');
+    } catch {
+      showGlobalAction('Unable to sign out right now. Please try again.');
+    }
+  };
   const [activeSection, setActiveSection] = useState('account');
   const [mobileSectionOpen, setMobileSectionOpen] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState('light');
@@ -1024,7 +1046,7 @@ function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
     <div className="settings-background settings-background-top" aria-hidden="true" />
     <div className="settings-background settings-background-bottom" aria-hidden="true" />
     <div className={`settings-layout${mobileSectionOpen ? ' is-mobile-section-open' : ''}`}>
-      <nav className="settings-nav" aria-label="Settings sections"><span className="settings-nav-label">Manage Learn Hub</span>{settingsSections.map(([id, label, description, ItemIcon]) => <button key={id} type="button" className={`settings-nav-item ${activeSection === id ? 'active' : ''}`} onClick={() => selectSettingsSection(id)}><ItemIcon size={17} stroke={1.8} /><span><b>{label}</b><small>{description}</small></span><IconChevronRight size={15} /></button>)}<button type="button" className="settings-logout" onClick={() => { logout(); showGlobalAction('You have been logged out successfully.'); navigate('/login'); }}><IconLogout size={17} /> Log out</button></nav>
+      <nav className="settings-nav" aria-label="Settings sections"><span className="settings-nav-label">Manage Learn Hub</span>{settingsSections.map(([id, label, description, ItemIcon]) => <button key={id} type="button" className={`settings-nav-item ${activeSection === id ? 'active' : ''}`} onClick={() => selectSettingsSection(id)}><ItemIcon size={17} stroke={1.8} /><span><b>{label}</b><small>{description}</small></span><IconChevronRight size={15} /></button>)}<button type="button" className="settings-logout" onClick={() => void handleLogout()}><IconLogout size={17} /> Log out</button></nav>
       <section className={`settings-detail${mobileSectionOpen ? ' is-mobile-section-open' : ''}`} aria-labelledby="settings-detail-title"><button type="button" className="mobile-settings-back" onClick={() => setMobileSectionOpen(false)}><IconChevronRight size={16} /> <span>Settings</span></button><div className="settings-detail-heading"><div className="settings-detail-icon"><SectionIcon size={20} /></div><div><span className="eyebrow">Settings</span><h2 id="settings-detail-title">{selected[1]}</h2><p>{selected[2]}</p></div></div>
         {activeSection === 'account' && <><div className="settings-card account-summary-card"><div className="profile-avatar large">SKP</div><div className="account-summary-copy"><span className="status-pill"><span /> Active account</span><h3>SAMUEL KP</h3><p>Student · Blantyre Secondary School · Form 3</p><small>Member since 16 September 2024</small></div><button type="button" className="outline-button" onClick={() => onNavigate('profile')}><IconEdit size={15} /> Edit profile</button></div><div className="settings-card"><div className="card-title-row"><div><h3>Account information</h3><p>Your identity and school details.</p></div><IconLock size={17} /></div><div className="account-fields"><div><span>Full name</span><strong>SAMUEL KP</strong></div><div><span>Account type</span><strong>Student</strong></div><div><span>Email address</span><strong>samuel.kp@example.com</strong></div><div><span>Phone number</span><strong>+265 888 204 118</strong></div><div><span>School</span><strong>Blantyre Secondary School</strong></div><div><span>Class / Form</span><strong>Form 3</strong></div></div></div><div className="settings-card schedule-note"><IconAdjustments size={18} /><div><strong>Profile editing schedule</strong><p>Your profile was last updated on 16 September 2026. You can edit it again on 16 March 2027. Sensitive membership changes require approval.</p></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Password</h3><p>Keep your account access secure.</p></div><button type="button" className="text-button" onClick={() => onAction('Password change is ready to connect when authentication is enabled.')}>Change password <IconChevronRight size={15} /></button></div></div></>}
         {activeSection === 'membership' && <><div className="settings-card"><div className="card-title-row"><div><h3>Student membership</h3><p>These details connect you to the right resources.</p></div><span className="status-pill"><span /> Approved</span></div><div className="account-fields"><div><span>Current school</span><strong>Blantyre Secondary School</strong></div><div><span>Class / Form</span><strong>Form 3</strong></div><div><span>Registration number</span><strong>BS-24-0318</strong></div><div><span>Primary department</span><strong>Sciences &amp; Technology</strong></div><div><span>Membership approved</span><strong>18 September 2024</strong></div></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Departments and subjects</h3><p>Your selections shape recommendations and notifications.</p></div><button type="button" className="outline-button">Update preferences</button></div><div className="chip-list"><span className="choice-chip selected"><IconCheck size={13} /> Science <b>Primary</b></span><span className="choice-chip selected"><IconCheck size={13} /> Humanities</span><span className="choice-chip">Business</span><span className="choice-chip">Languages</span></div></div><div className="action-list"><button type="button">Request a school change <IconChevronRight size={16} /></button><button type="button">Report incorrect school information <IconChevronRight size={16} /></button></div></>}
@@ -1325,6 +1347,7 @@ function AppContent() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [selectedDeptFilter, setSelectedDeptFilter] = useState('All STEM');
   const { currentPage, setCurrentPage, navigateTo } = useAppNavigation();
+  const showHomeSection = (...filters) => activeTab === 'all' || filters.includes(activeTab);
 
   useEffect(() => {
     const openMobileMenu = () => setIsMobileMenuOpen(true);
@@ -1981,9 +2004,13 @@ function AppContent() {
       const resource = titleNode && (postedResources.find((item) => item.title === titleNode.textContent.trim()) || resourceByTitle(titleNode.textContent.trim()));
       if (resource) toggleLibrary(resource);
     } else if (control?.classList.contains('popover-signout') || /^(Log out|Sign out)/i.test(label)) {
-      logout();
-      showGlobalAction('You have been logged out successfully.');
-      navigate('/login');
+      void clearSupabaseSession().then(() => {
+        logout();
+        showGlobalAction('You have been logged out successfully.');
+        navigate('/login');
+      }).catch(() => {
+        showGlobalAction('Unable to sign out right now. Please try again.');
+      });
     } else if (control?.type === 'button' && !control.closest('.settings-nav')) {
       showAction(`${label || 'This action'} is ready to connect.`);
     }
@@ -2127,6 +2154,7 @@ function AppContent() {
               <button
                 type="button"
                 className={`discover-tab-btn ${activeTab === 'all' ? 'active' : ''}`}
+                aria-pressed={activeTab === 'all'}
                 onClick={() => setActiveTab('all')}
               >
                 All Resources
@@ -2134,6 +2162,7 @@ function AppContent() {
               <button
                 type="button"
                 className={`discover-tab-btn ${activeTab === 'books' ? 'active' : ''}`}
+                aria-pressed={activeTab === 'books'}
                 onClick={() => setActiveTab('books')}
               >
                 Books &amp; Notes
@@ -2141,6 +2170,7 @@ function AppContent() {
               <button
                 type="button"
                 className={`discover-tab-btn ${activeTab === 'papers' ? 'active' : ''}`}
+                aria-pressed={activeTab === 'papers'}
                 onClick={() => setActiveTab('papers')}
               >
                 Past Papers
@@ -2148,6 +2178,7 @@ function AppContent() {
               <button
                 type="button"
                 className={`discover-tab-btn ${activeTab === 'schools' ? 'active' : ''}`}
+                aria-pressed={activeTab === 'schools'}
                 onClick={() => setActiveTab('schools')}
               >
                 School Uploads
@@ -2156,7 +2187,7 @@ function AppContent() {
           </div>
 
           {/* 1. Continue Reading Section */}
-          <section className="shelf-section continue-reading-section" aria-labelledby="continue-reading-heading">
+          <section hidden={!showHomeSection('books')} className="shelf-section continue-reading-section" aria-labelledby="continue-reading-heading">
             <div className="section-heading">
               <div>
                 <h2 id="continue-reading-heading">Continue Reading</h2>
@@ -2204,7 +2235,7 @@ function AppContent() {
           </section>
 
           {/* 2. Resource Categories */}
-          <section className="shelf-section category-section" id="categories" aria-labelledby="categories-heading">
+          <section hidden={!showHomeSection('books')} className="shelf-section category-section" id="categories" aria-labelledby="categories-heading">
             <div className="section-heading">
               <div>
                 <h2 id="categories-heading">Resource Categories</h2>
@@ -2227,7 +2258,7 @@ function AppContent() {
           </section>
 
           {/* 3. Book Recommendation Section */}
-          <section className="shelf-section recommendation-section" aria-labelledby="recommendations-heading">
+          <section hidden={!showHomeSection('books')} className="shelf-section recommendation-section" aria-labelledby="recommendations-heading">
             <div className="section-heading">
               <div>
                 <h2 id="recommendations-heading">Book Recommendation</h2>
@@ -2235,7 +2266,9 @@ function AppContent() {
               <a href="#all-books" className="view-all">View all</a>
             </div>
             <div className="recommendation-shelf">
-              {recommendations.map((book) => (
+              {recommendations
+                .filter((book) => activeTab !== 'books' || book.format !== 'Past Papers')
+                .map((book) => (
                 <article className="kindle-book-card" key={book.title}>
                   <div className="kindle-thumbnail-wrapper">
                     <img className="book-cover" src={book.image} alt={`${book.title} cover`} />
@@ -2278,7 +2311,7 @@ function AppContent() {
           </section>
 
           {/* 3. Recommended Past Papers Section */}
-          <section className="shelf-section past-papers-section" aria-labelledby="past-papers-heading">
+          <section hidden={!showHomeSection('papers')} className="shelf-section past-papers-section" aria-labelledby="past-papers-heading">
             <div className="section-heading">
               <div>
                 <h2 id="past-papers-heading">Recommended Past Papers</h2>
@@ -2322,7 +2355,7 @@ function AppContent() {
           </section>
 
           {/* 4. Latest Uploads from the Student's School */}
-          <section className="shelf-section school-uploads-section" aria-labelledby="school-uploads-heading">
+          <section hidden={!showHomeSection('schools')} className="shelf-section school-uploads-section" aria-labelledby="school-uploads-heading">
             <div className="section-heading">
               <div>
                 <h2 id="school-uploads-heading">Latest Uploads from Your School</h2>
@@ -2359,7 +2392,7 @@ function AppContent() {
           </section>
 
           {/* 5. New Content from Followed Schools */}
-          <section className="shelf-section followed-schools-section" aria-labelledby="followed-schools-heading">
+          <section hidden={!showHomeSection('schools')} className="shelf-section followed-schools-section" aria-labelledby="followed-schools-heading">
             <div className="section-heading">
               <div>
                 <h2 id="followed-schools-heading">New Content from Followed Schools</h2>
@@ -2399,7 +2432,7 @@ function AppContent() {
           </section>
 
           {/* 6. Popular Resources */}
-          <section className="shelf-section popular-section" aria-labelledby="popular-heading">
+          <section hidden={!showHomeSection('books')} className="shelf-section popular-section" aria-labelledby="popular-heading">
             <div className="section-heading">
               <div>
                 <h2 id="popular-heading">Popular Resources</h2>
@@ -2442,7 +2475,7 @@ function AppContent() {
           </section>
 
           {/* 7. Recently Added Resources */}
-          <section className="shelf-section recently-added-section" aria-labelledby="recently-added-heading">
+          <section hidden={!showHomeSection('books')} className="shelf-section recently-added-section" aria-labelledby="recently-added-heading">
             <div className="section-heading">
               <div>
                 <h2 id="recently-added-heading">Recently Added Resources</h2>
@@ -2482,7 +2515,7 @@ function AppContent() {
           </section>
 
           {/* 8. Resources Based on User's Department */}
-          <section className="shelf-section dept-resources-section" aria-labelledby="dept-resources-heading">
+          <section hidden={!showHomeSection('books')} className="shelf-section dept-resources-section" aria-labelledby="dept-resources-heading">
             <div className="section-heading">
               <div>
                 <h2 id="dept-resources-heading">Resources for Your Department</h2>
