@@ -6,6 +6,7 @@ import { z } from 'zod';
 import AuthPage from './pages/AuthPage';
 import CompleteProfile from './pages/CompleteProfile';
 import ProtectedRoute from './components/ProtectedRoute';
+import LearnHubAssistant from './components/LearnHubAssistant';
 import {
   IconHome,
   IconVideo,
@@ -1427,6 +1428,26 @@ function AppContent() {
     setSelectedResource(resource);
     setResourceReturnPage(currentPage === 'resource' ? resourceReturnPage : currentPage);
     setCurrentPage('resource');
+  };
+
+  const openAssistantResource = (source) => {
+    const catalogResource = resourceCatalog.find((item) => String(item.id) === String(source.resource_id))
+      || resourceCatalog.find((item) => item.title === source.title);
+    const resourceType = source.resource_type === 'video'
+      ? 'video'
+      : ['past_paper', 'marking_scheme'].includes(source.resource_type)
+        ? 'paper'
+        : 'book';
+    openResource(catalogResource || {
+      id: source.resource_id,
+      title: source.title,
+      resourceType,
+      author: source.author || 'Learn Hub library',
+      subject: source.subject,
+      topic: source.topic,
+      meta: [source.subject, source.topic].filter(Boolean).join(' · ') || 'Approved Learn Hub resource',
+      image: recommendations[0].image,
+    });
   };
 
   const openReader = (resource = selectedResource) => {
@@ -3204,6 +3225,11 @@ function AppContent() {
           <SettingsPage onNavigate={navigateTo} onAction={showAction} />
         ) : null}
       </main>
+      <LearnHubAssistant
+        currentPage={currentPage}
+        resource={selectedResource}
+        onOpenResource={openAssistantResource}
+      />
       {currentPage !== 'home' && <MobileScholasticMenu isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} onNavigate={navigateFromMobileMenu} />}
       {activeReelPost && createPortal(<div
         className="discover-reel-backdrop"

@@ -30,3 +30,8 @@ export const searchResources = async (query, page = 1, perPage = 20) => {
   });
   return response.data;
 };
+
+export const askLearnHubAssistant = async (payload) => {
+  const response = await searchClient.post('/assistant/chat', payload, { timeout: 30000 });
+  return response.data;
+};

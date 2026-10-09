@@ -24,6 +24,24 @@ export SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
 python3 app.py
 ```
 
+The service also exposes `POST /assistant/chat` for the LearnHub Assistant.
+It retrieves relevant passages only from verified resources with extracted
+text, then asks Gemini to explain the answer in student-friendly language.
+Resource titles and IDs are returned as citations; page and section references
+are omitted when they are not stored with the indexed resource text. Configure
+`GEMINI_API_KEY` on the Python service only (never in the React app), and
+optionally set `GEMINI_MODEL` (defaults to `gemini-2.5-flash`). The deployed
+Python service must also set `CLIENT_ORIGIN` to the deployed React site's
+origin. The deployed React app must set its existing
+`REACT_APP_SEARCH_API_URL` to this service's base URL.
+
+The request body accepts a `question`, optional `context` for the resource
+currently being viewed, and recent `history`. Context helps rank the viewed
+resource but does not restrict general questions to it. The API loads resources
+from Supabase itself; clients cannot submit resource text. If no relevant
+approved passages exist, it returns a plain uncertainty response without
+calling Gemini.
+
 Search example:
 
 ```bash
