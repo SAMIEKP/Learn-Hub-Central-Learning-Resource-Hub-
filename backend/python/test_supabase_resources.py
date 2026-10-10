@@ -1,7 +1,10 @@
 import json
 import unittest
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 from urllib.parse import parse_qs, urlparse
+
+import jwt
 
 from supabase_resources import SupabaseResourceStore
 
@@ -28,21 +31,34 @@ class SupabaseAssistantResourceTests(unittest.TestCase):
             anon_key="public-anon-key",
         )
 
-    def test_access_token_is_validated_by_supabase_auth(self):
-        captured = {}
-
-        def fake_urlopen(request, timeout):
-            captured["request"] = request
-            captured["timeout"] = timeout
-            return FakeResponse({"id": "student-1"})
-
-        with patch("supabase_resources.urlopen", side_effect=fake_urlopen):
+    def test_clerk_access_token_is_validated_against_configured_issuer(self):
+        self.store.clerk_issuer = "https://learnhub.clerk.accounts.dev"
+        self.store.clerk_jwks = SimpleNamespace(
+            get_signing_key_from_jwt=Mock(return_value=SimpleNamespace(key="public-key"))
+        )
+        with patch("supabase_resources.jwt.decode", return_value={
+            "iss": self.store.clerk_issuer,
+            "sub": "user_123",
+        }) as decode:
             user = self.store.verify_access_token("student-access-token")
 
-        self.assertEqual(user, {"id": "student-1"})
-        self.assertEqual(captured["request"].get_header("Authorization"), "Bearer student-access-token")
-        self.assertEqual(captured["request"].get_header("Apikey"), "public-anon-key")
-        self.assertNotEqual(captured["request"].get_header("Apikey"), "service-role-secret")
+        self.assertEqual(user, {"id": "user_123"})
+        decode.assert_called_once_with(
+            "student-access-token",
+            "public-key",
+            algorithms=["RS256"],
+            issuer=self.store.clerk_issuer,
+            options={"require": ["sub", "iss", "exp", "iat"]},
+        )
+
+    def test_invalid_clerk_token_is_rejected(self):
+        self.store.clerk_issuer = "https://learnhub.clerk.accounts.dev"
+        self.store.clerk_jwks = SimpleNamespace(
+            get_signing_key_from_jwt=Mock(return_value=SimpleNamespace(key="public-key"))
+        )
+        with patch("supabase_resources.jwt.decode", side_effect=jwt.InvalidTokenError):
+            with self.assertRaises(PermissionError):
+                self.store.verify_access_token("invalid-token")
 
     def test_assistant_resource_query_uses_user_token_and_verified_filter(self):
         captured = {}
@@ -64,7 +80,10 @@ class SupabaseAssistantResourceTests(unittest.TestCase):
         self.assertEqual(resources, [resource])
         self.assertEqual(query["verification_status"], ["eq.verified"])
         self.assertEqual(query["extracted_text"], ["not.is.null"])
-        self.assertEqual(captured["request"].get_header("Authorization"), "Bearer student-access-token")
+        self.assertEqual(
+            captured["request"].get_header("Authorization"),
+            "Bearer student-access-token",
+        )
         self.assertEqual(captured["request"].get_header("Apikey"), "public-anon-key")
 
 

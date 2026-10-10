@@ -9,6 +9,8 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+import jwt
+
 
 RESOURCE_COLUMNS = (
     "id,title,description,subject,department,form,topic,examination_year,"
@@ -18,7 +20,7 @@ RESOURCE_COLUMNS = (
 
 
 class SupabaseResourceStore:
-    """Fetch verified resources with a server-only Supabase key."""
+    """Fetch verified resources and authenticate Clerk sessions."""
 
     def __init__(
         self,
@@ -30,34 +32,36 @@ class SupabaseResourceStore:
         self.url = (url or os.environ.get("SUPABASE_URL", "")).rstrip("/")
         self.key = key or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
         self.anon_key = anon_key or os.environ.get("SUPABASE_ANON_KEY", "")
+        self.clerk_issuer = os.environ.get("CLERK_ISSUER", "").rstrip("/")
+        jwks_url = os.environ.get(
+            "CLERK_JWKS_URL",
+            f"{self.clerk_issuer}/.well-known/jwks.json" if self.clerk_issuer else "",
+        )
+        self.clerk_jwks = jwt.PyJWKClient(jwks_url) if jwks_url else None
         self.page_size = page_size
 
     def verify_access_token(self, access_token: str) -> dict[str, Any]:
-        """Validate a Supabase access token with Auth, without trusting its claims."""
-        if not self.url or not self.anon_key:
-            raise RuntimeError("SUPABASE_URL and SUPABASE_ANON_KEY are required")
-
-        request = Request(
-            f"{self.url}/auth/v1/user",
-            headers={
-                "apikey": self.anon_key,
-                "Authorization": f"Bearer {access_token}",
-                "Accept": "application/json",
-            },
-        )
+        """Validate a Clerk session token against the configured issuer and JWKS."""
+        if not self.clerk_issuer or not self.clerk_jwks:
+            raise RuntimeError("CLERK_ISSUER is required to validate assistant sessions")
         try:
-            with urlopen(request, timeout=8) as response:
-                user = json.loads(response.read().decode("utf-8"))
-        except HTTPError as error:
-            if error.code in (401, 403):
-                raise PermissionError("Invalid Supabase access token") from error
-            raise RuntimeError("Unable to validate the Supabase session") from error
-        except (URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as error:
-            raise RuntimeError("Unable to validate the Supabase session") from error
+            signing_key = self.clerk_jwks.get_signing_key_from_jwt(access_token)
+            claims = jwt.decode(
+                access_token,
+                signing_key.key,
+                algorithms=["RS256"],
+                issuer=self.clerk_issuer,
+                options={"require": ["sub", "iss", "exp", "iat"]},
+            )
+        except jwt.InvalidTokenError as error:
+            raise PermissionError("Invalid Clerk session token") from error
+        except jwt.PyJWKClientError as error:
+            raise RuntimeError("Unable to validate the Clerk session") from error
 
-        if not isinstance(user, dict) or not isinstance(user.get("id"), str):
-            raise RuntimeError("Supabase returned an invalid session response")
-        return user
+        subject = claims.get("sub")
+        if not isinstance(subject, str) or not subject:
+            raise PermissionError("Clerk token has no user subject")
+        return {"id": subject}
 
     def list_accessible_resources(self, access_token: str) -> list[dict[str, Any]]:
         """Read verified, extracted resources through the caller's Supabase RLS scope."""

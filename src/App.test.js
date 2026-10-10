@@ -1,6 +1,23 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import App from './App';
 import { useAppStore } from './store/useAppStore';
+
+const mockAppUser = {
+  id: 'test-user',
+  name: 'Test User',
+  email: 'test@example.com',
+  role: 'Student',
+  school: 'Test School',
+};
+
+jest.mock('./hooks/useAuth', () => ({
+  useAuth: () => ({
+    isConfigured: true,
+    isSignedIn: true,
+    isLoading: false,
+    appUser: mockAppUser,
+  }),
+}));
 
 beforeEach(() => {
   window.localStorage.clear();
@@ -13,6 +30,14 @@ test('renders learn hub brand title', () => {
   const brandElement = screen.getByRole('heading', { name: /home/i });
   expect(brandElement).toBeInTheDocument();
   expect(screen.getByRole('link', { name: /learn hub/i })).toBeInTheDocument();
+});
+
+test('displays feedback messages triggered by app actions', () => {
+  render(<App />);
+
+  act(() => useAppStore.getState().showAction('Action completed.'));
+
+  expect(screen.getByRole('status')).toHaveTextContent('Action completed.');
 });
 
 test('home resource filters show only the matching resource shelves', () => {

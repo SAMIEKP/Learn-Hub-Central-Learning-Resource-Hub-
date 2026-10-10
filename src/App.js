@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import AuthPage from './pages/AuthPage';
 import CompleteProfile from './pages/CompleteProfile';
+import ResetPassword from './pages/ResetPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import LearnHubAssistant from './components/LearnHubAssistant';
 import {
@@ -61,7 +62,25 @@ import ScholasticHub from './components/ScholasticHub';
 import FileDropzone from './components/FileDropzone';
 import { useAppStore } from './store/useAppStore';
 import { formatDate } from './utils/date';
-import { clearSupabaseSession } from './lib/supabaseClient';
+import { supabase } from './lib/supabaseClient';
+import { useLearnHubAuth } from './auth/ClerkAuthProvider';
+import { updateProfile } from './api/profiles';
+import { UserProfile } from '@clerk/react';
+import {
+  createSocialComment,
+  createSocialPost,
+  deleteSocialComment,
+  deleteSocialPost,
+  hideSocialPost,
+  loadSocialFeed,
+  reportSocialPost,
+  setSocialCommentReaction,
+  setSocialFollow,
+  setSocialReaction,
+  submitSchoolMembershipRequest,
+  updateSocialComment,
+  updateSocialPost,
+} from './api/social';
 
 const libraryItems = [
   {
@@ -871,14 +890,16 @@ const resourceByTitle = (title) => continueReading.find((resource) => resource.t
 
 const resourceKey = (resource) => String(resource.id || resource.title);
 const defaultCurrentUser = { id: 'user-samuel', name: 'SAMUEL KP', initials: 'SKP', role: 'Student · Form 3', school: 'Blantyre Secondary School' };
+const isSupabaseId = (value) => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
 function HeaderActions({ onNavigate = () => {}, onAction = () => {}, user = defaultCurrentUser, onOpenSearch, isSearchOpen = false }) {
   const navigate = useNavigate();
+  const { signOut } = useLearnHubAuth();
   const logout = useAppStore((state) => state.logout);
   const showGlobalAction = useAppStore((state) => state.showAction);
   const handleLogout = async () => {
     try {
-      await clearSupabaseSession();
+      await signOut({ redirectUrl: '/login' });
       logout();
       showGlobalAction('You have been logged out successfully.');
       navigate('/login');
@@ -1011,11 +1032,18 @@ function NotificationsPage({ onNavigate = () => {} }) {
 
 function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
   const navigate = useNavigate();
+  const { signOut, signIn } = useLearnHubAuth();
   const logout = useAppStore((state) => state.logout);
+  const currentUser = useAppStore((state) => state.user);
   const showGlobalAction = useAppStore((state) => state.showAction);
+  const fallbackProfile = { name: 'SAMUEL KP', role: 'Student', form: 'Form 3', school: 'Blantyre Secondary School', department: 'Sciences & Technology', email: 'samuel.kp@example.com', phone: '+265 888 204 118', image: null };
+  const storedProfile = readStoredValue('learnhub-profile-details', {});
+  const profileDetails = { ...fallbackProfile, ...storedProfile, ...currentUser };
+  const profileInitials = profileDetails.name.split(' ').map((part) => part[0]).join('').slice(0, 3);
+
   const handleLogout = async () => {
     try {
-      await clearSupabaseSession();
+      await signOut({ redirectUrl: '/login' });
       logout();
       showGlobalAction('You have been logged out successfully.');
       navigate('/login');
@@ -1026,10 +1054,67 @@ function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
   const [activeSection, setActiveSection] = useState('account');
   const [mobileSectionOpen, setMobileSectionOpen] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState('light');
-  const profileDetails = readStoredValue('learnhub-profile-details', { name: 'SAMUEL KP', role: 'Student', form: 'Form 3', school: 'Blantyre Secondary School', department: 'Sciences & Technology', email: 'samuel.kp@example.com', phone: '+265 888 204 118', image: null });
-  const profileInitials = profileDetails.name.split(' ').map((part) => part[0]).join('').slice(0, 3);
+  const [schoolRequestMode, setSchoolRequestMode] = useState('');
+  const [requestedSchool, setRequestedSchool] = useState('');
+  const [schoolRequestDetails, setSchoolRequestDetails] = useState('');
+  const [schoolRequestBusy, setSchoolRequestBusy] = useState(false);
+  const [schoolRequestError, setSchoolRequestError] = useState('');
   const selected = settingsSections.find(([id]) => id === activeSection);
   const SectionIcon = selected[3];
+  const closeSchoolRequest = useCallback(() => {
+    setSchoolRequestMode('');
+    setSchoolRequestError('');
+  }, []);
+  const schoolRequestDialogRef = useDialogAccessibility(Boolean(schoolRequestMode), closeSchoolRequest);
+
+  const submitSchoolRequest = async (event) => {
+    event.preventDefault();
+    if (!supabase || !currentUser?.id) {
+      setSchoolRequestError('School requests require a configured Learn Hub account.');
+      return;
+    }
+    const details = schoolRequestDetails.trim();
+    const school = requestedSchool.trim();
+    if (!details || (schoolRequestMode === 'school_change' && !school)) {
+      setSchoolRequestError('Complete the required fields before submitting.');
+      return;
+    }
+    setSchoolRequestBusy(true);
+    setSchoolRequestError('');
+    try {
+      await submitSchoolMembershipRequest({
+        user_id: currentUser.id,
+        request_type: schoolRequestMode,
+        current_school: profileDetails.school || '',
+        requested_school: schoolRequestMode === 'school_change' ? school : null,
+        details,
+      });
+      closeSchoolRequest();
+      setRequestedSchool('');
+      setSchoolRequestDetails('');
+      onAction('Your school request was submitted for review.');
+    } catch {
+      setSchoolRequestError('Unable to submit your request. Please try again.');
+    } finally {
+      setSchoolRequestBusy(false);
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    if (!signIn || !profileDetails.email) {
+      onAction('Password recovery is unavailable until Clerk is configured.');
+      return;
+    }
+    try {
+      const { error } = await signIn.create({ identifier: profileDetails.email });
+      if (error) throw error;
+      const result = await signIn.resetPasswordEmailCode.sendCode();
+      if (result.error) throw result.error;
+      navigate(`/reset-password?email=${encodeURIComponent(profileDetails.email)}`);
+    } catch {
+      onAction('Unable to send a password recovery email right now. Please try again.');
+    }
+  };
   const selectSettingsSection = (section) => {
     setActiveSection(section);
     setMobileSectionOpen(true);
@@ -1048,18 +1133,19 @@ function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
     <div className={`settings-layout${mobileSectionOpen ? ' is-mobile-section-open' : ''}`}>
       <nav className="settings-nav" aria-label="Settings sections"><span className="settings-nav-label">Manage Learn Hub</span>{settingsSections.map(([id, label, description, ItemIcon]) => <button key={id} type="button" className={`settings-nav-item ${activeSection === id ? 'active' : ''}`} onClick={() => selectSettingsSection(id)}><ItemIcon size={17} stroke={1.8} /><span><b>{label}</b><small>{description}</small></span><IconChevronRight size={15} /></button>)}<button type="button" className="settings-logout" onClick={() => void handleLogout()}><IconLogout size={17} /> Log out</button></nav>
       <section className={`settings-detail${mobileSectionOpen ? ' is-mobile-section-open' : ''}`} aria-labelledby="settings-detail-title"><button type="button" className="mobile-settings-back" onClick={() => setMobileSectionOpen(false)}><IconChevronRight size={16} /> <span>Settings</span></button><div className="settings-detail-heading"><div className="settings-detail-icon"><SectionIcon size={20} /></div><div><span className="eyebrow">Settings</span><h2 id="settings-detail-title">{selected[1]}</h2><p>{selected[2]}</p></div></div>
-        {activeSection === 'account' && <><div className="settings-card account-summary-card"><div className="profile-avatar large">SKP</div><div className="account-summary-copy"><span className="status-pill"><span /> Active account</span><h3>SAMUEL KP</h3><p>Student · Blantyre Secondary School · Form 3</p><small>Member since 16 September 2024</small></div><button type="button" className="outline-button" onClick={() => onNavigate('profile')}><IconEdit size={15} /> Edit profile</button></div><div className="settings-card"><div className="card-title-row"><div><h3>Account information</h3><p>Your identity and school details.</p></div><IconLock size={17} /></div><div className="account-fields"><div><span>Full name</span><strong>SAMUEL KP</strong></div><div><span>Account type</span><strong>Student</strong></div><div><span>Email address</span><strong>samuel.kp@example.com</strong></div><div><span>Phone number</span><strong>+265 888 204 118</strong></div><div><span>School</span><strong>Blantyre Secondary School</strong></div><div><span>Class / Form</span><strong>Form 3</strong></div></div></div><div className="settings-card schedule-note"><IconAdjustments size={18} /><div><strong>Profile editing schedule</strong><p>Your profile was last updated on 16 September 2026. You can edit it again on 16 March 2027. Sensitive membership changes require approval.</p></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Password</h3><p>Keep your account access secure.</p></div><button type="button" className="text-button" onClick={() => onAction('Password change is ready to connect when authentication is enabled.')}>Change password <IconChevronRight size={15} /></button></div></div></>}
-        {activeSection === 'membership' && <><div className="settings-card"><div className="card-title-row"><div><h3>Student membership</h3><p>These details connect you to the right resources.</p></div><span className="status-pill"><span /> Approved</span></div><div className="account-fields"><div><span>Current school</span><strong>Blantyre Secondary School</strong></div><div><span>Class / Form</span><strong>Form 3</strong></div><div><span>Registration number</span><strong>BS-24-0318</strong></div><div><span>Primary department</span><strong>Sciences &amp; Technology</strong></div><div><span>Membership approved</span><strong>18 September 2024</strong></div></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Departments and subjects</h3><p>Your selections shape recommendations and notifications.</p></div><button type="button" className="outline-button">Update preferences</button></div><div className="chip-list"><span className="choice-chip selected"><IconCheck size={13} /> Science <b>Primary</b></span><span className="choice-chip selected"><IconCheck size={13} /> Humanities</span><span className="choice-chip">Business</span><span className="choice-chip">Languages</span></div></div><div className="action-list"><button type="button">Request a school change <IconChevronRight size={16} /></button><button type="button">Report incorrect school information <IconChevronRight size={16} /></button></div></>}
+        {activeSection === 'account' && <><div className="settings-card account-summary-card"><div className="profile-avatar large">{profileInitials}</div><div className="account-summary-copy"><span className="status-pill"><span /> Active account</span><h3>{profileDetails.name}</h3><p>{profileDetails.role} · {profileDetails.school} · {profileDetails.form}</p><small>Learn Hub account</small></div><button type="button" className="outline-button" onClick={() => onNavigate('profile')}><IconEdit size={15} /> Edit profile</button></div><div className="settings-card"><div className="card-title-row"><div><h3>Account information</h3><p>Your identity and school details.</p></div><IconLock size={17} /></div><div className="account-fields"><div><span>Full name</span><strong>{profileDetails.name}</strong></div><div><span>Account type</span><strong>{profileDetails.role}</strong></div><div><span>Email address</span><strong>{profileDetails.email}</strong></div><div><span>Phone number</span><strong>{profileDetails.phone || 'Not specified'}</strong></div><div><span>School</span><strong>{profileDetails.school}</strong></div><div><span>Class / Form</span><strong>{profileDetails.form}</strong></div></div></div><div className="settings-card schedule-note"><IconAdjustments size={18} /><div><strong>Profile editing schedule</strong><p>Manage the details shown on your Learn Hub profile. Sensitive membership changes may require approval.</p></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Password</h3><p>Keep your account access secure.</p></div><button type="button" className="text-button" onClick={() => void handlePasswordChange()}>Change password <IconChevronRight size={15} /></button></div></div></>}
+        {activeSection === 'membership' && <><div className="settings-card"><div className="card-title-row"><div><h3>School membership</h3><p>These details connect you to the right resources.</p></div><span className="status-pill"><span /> Profile details</span></div><div className="account-fields"><div><span>Current school</span><strong>{profileDetails.school || 'Not specified'}</strong></div><div><span>Class / Form</span><strong>{profileDetails.form || 'Not specified'}</strong></div><div><span>Registration number</span><strong>{profileDetails.registrationNumber || 'Not provided'}</strong></div><div><span>Primary department</span><strong>{profileDetails.department || 'Not specified'}</strong></div></div></div><div className="settings-card"><div className="card-title-row"><div><h3>Departments and subjects</h3><p>Your selections shape recommendations and notifications.</p></div><button type="button" className="outline-button" onClick={() => onNavigate('profile')}>Edit profile</button></div><div className="chip-list">{(profileDetails.subjects || '').split(',').filter(Boolean).map((subject) => <span className="choice-chip" key={subject.trim()}>{subject.trim()}</span>)}{!profileDetails.subjects && <span className="choice-chip">No subjects selected</span>}</div></div><div className="action-list"><button type="button" onClick={() => { setSchoolRequestMode('school_change'); setSchoolRequestError(''); }}>Request a school change <IconChevronRight size={16} /></button><button type="button" onClick={() => { setSchoolRequestMode('correction'); setSchoolRequestError(''); }}>Report incorrect school information <IconChevronRight size={16} /></button></div></>}
         {activeSection === 'notifications' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Notification channels</h3><p>Security and recovery alerts always stay on.</p></div></div><SettingToggle label="In-app notifications" description="Updates inside Learn Hub" /><SettingToggle label="Push notifications" description="New activity on your devices" /><SettingToggle label="Email notifications" defaultChecked={false} /><div className="subsection-heading">School notifications</div><SettingToggle label="Books and subject notes" /><SettingToggle label="Past papers" /><SettingToggle label="Video tutorials" defaultChecked={false} /><SettingToggle label="School announcements" /><div className="subsection-heading">Question notifications</div><SettingToggle label="Answers to my questions" /><SettingToggle label="Correct-answer confirmations" /><SettingToggle label="Activity on followed questions" defaultChecked={false} /></div>}
         {activeSection === 'library' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Library preferences</h3><p>Make your study library behave the way you expect.</p></div></div><div className="select-row"><label>Default library view<select defaultValue="grid"><option value="grid">Grid</option><option value="list">List</option></select></label><label>Default sorting<select defaultValue="recent"><option value="recent">Recent activity</option><option value="title">Title</option><option value="author">Author</option></select></label></div><SettingToggle label="Automatically add opened resources to history" /><SettingToggle label="Show completed resources" /><SettingToggle label="Confirm before removing a resource" /><div className="subsection-heading">Downloads</div><SettingToggle label="Wi-Fi-only downloads" /><SettingToggle label="Ask before downloading large files" /><div className="storage-meter"><div><span>Storage used</span><strong>420 MB of 2 GB</strong></div><div className="meter-track"><span style={{ width: '21%' }} /></div><button type="button" className="text-button">Manage downloads <IconChevronRight size={15} /></button></div></div>}
         {activeSection === 'recommendations' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Recommendation sources</h3><p>Choose what Learn Hub can use to personalize your shelves.</p></div></div><SettingToggle label="My department" /><SettingToggle label="My class / Form" /><SettingToggle label="My school" /><SettingToggle label="My reading history" /><SettingToggle label="My likes and saved items" /><SettingToggle label="Popular resources" /><div className="recommendation-note"><IconCompass size={17} /><span>Recommendations may include “Recommended because you selected Science” or “New from your school.”</span></div><button type="button" className="danger-link">Reset recommendation history</button></div>}
         {activeSection === 'privacy' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Profile visibility</h3><p>Control who can discover your public learning identity.</p></div></div><div className="visibility-options"><label><input type="radio" name="visibility" defaultChecked /> <span><strong>My school</strong><small>Recommended for students</small></span></label><label><input type="radio" name="visibility" /> <span><strong>All approved Learn Hub users</strong><small>Your public profile can be viewed by approved members</small></span></label><label><input type="radio" name="visibility" /> <span><strong>Private</strong><small>Only you can see your profile activity</small></span></label></div><div className="subsection-heading">Activity privacy</div><SettingToggle label="Questions and answers" /><SettingToggle label="Liked resources" defaultChecked={false} /><SettingToggle label="Recently read and completed resources" defaultChecked={false} /><div className="privacy-callout"><IconLock size={16} /><span>Private notes, highlights, email, phone number, and reading history are private by default.</span></div></div>}
         {activeSection === 'appearance' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Appearance and accessibility</h3><p>Comfortable reading for every study session.</p></div></div><div className="theme-selector" role="group" aria-label="Theme"><span className="theme-selector-label">Theme</span><div className="theme-options">{[['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([theme, label]) => <button key={theme} type="button" className={`theme-choice ${selectedTheme === theme ? 'active' : ''}`} aria-pressed={selectedTheme === theme} onClick={() => setSelectedTheme(theme)}><span className={`theme-swatch ${theme}`} /><span>{label}</span>{selectedTheme === theme && <IconCheck size={15} />}</button>)}</div></div><SettingToggle label="Larger text" /><SettingToggle label="High contrast colors" /><SettingToggle label="Reduced motion" defaultChecked={false} /><SettingToggle label="Dyslexia-friendly font" defaultChecked={false} /><SettingToggle label="Prefer captions" /><SettingToggle label="Prefer transcripts" /></div>}
-        {activeSection === 'security' && <div className="settings-card settings-card-stack"><div className="security-status-row"><span className="security-check"><IconCheck size={15} /></span><div><strong>Email verified</strong><small>samuel.kp@example.com</small></div><b>Yes</b></div><div className="security-status-row"><span className="security-check"><IconCheck size={15} /></span><div><strong>Phone verified</strong><small>+265 888 204 118</small></div><b>Yes</b></div><div className="security-status-row"><span className="security-icon"><IconShieldCheck size={15} /></span><div><strong>Two-step verification</strong><small>Add another layer of protection</small></div><button type="button" className="outline-button">Set up</button></div><div className="security-summary"><span>Active devices <strong>2</strong></span><span>Last login <strong>Today, 14:20</strong></span></div><button type="button" className="danger-button">Sign out of all devices</button></div>}
+        {activeSection === 'security' && <div className="settings-card settings-card-stack"><div className="security-status-row"><span className="security-icon"><IconMail size={15} /></span><div><strong>Account email</strong><small>{profileDetails.email || 'Not available'}</small></div><span>Clerk</span></div><p className="security-summary">Manage passwords, authenticator factors, and active sessions securely with Clerk.</p><UserProfile routing="hash" /></div>}
         {activeSection === 'help' && <div className="settings-card settings-card-stack"><div className="help-row"><IconQuestionMark size={19} /><div><strong>Help center</strong><span>Answers about learning, publishing, and downloads</span></div><IconChevronRight size={16} /></div><div className="help-row"><IconMessageCircle2 size={19} /><div><strong>Report a technical problem</strong><span>Tell us what went wrong</span></div><IconChevronRight size={16} /></div><div className="help-row"><IconMail size={19} /><div><strong>Contact platform support</strong><span>support@learnhub.mw</span></div><IconChevronRight size={16} /></div><div className="link-row"><span>Terms of use</span><span>Privacy policy</span><span>Community guidelines</span></div></div>}
         {activeSection === 'about' && <div className="settings-card about-card"><div className="about-mark"><img src={logo} alt="" /></div><h3>Learn Hub</h3><p>A digital educational library for secondary schools in Malawi.</p><span className="version-label">Version 1.0.0 · Build 2026.09.20</span><div className="link-row"><span>Terms of use</span><span>Privacy policy</span><span>Licenses</span></div><button type="button" className="outline-button">Check for updates</button></div>}
       </section>
     </div>
+    {schoolRequestMode && <div className="profile-modal-backdrop" role="presentation"><form ref={schoolRequestDialogRef} role="dialog" aria-modal="true" aria-labelledby="school-request-title" className="profile-editor settings-request-dialog" onSubmit={submitSchoolRequest}><div className="profile-editor-heading"><div><span className="eyebrow">School membership</span><h2 id="school-request-title">{schoolRequestMode === 'school_change' ? 'Request a school change' : 'Report school information'}</h2></div><button type="button" className="modal-close" aria-label="Close school request" onClick={closeSchoolRequest}>×</button></div><p>Your request will be attached to your Learn Hub account for review.</p>{schoolRequestMode === 'school_change' && <label className="profile-field">New school<input type="text" value={requestedSchool} onChange={(event) => setRequestedSchool(event.target.value)} maxLength={160} required /></label>}<label className="profile-field">{schoolRequestMode === 'school_change' ? 'Reason for change' : 'What information is incorrect?'}<textarea value={schoolRequestDetails} onChange={(event) => setSchoolRequestDetails(event.target.value)} maxLength={1000} required /></label>{schoolRequestError && <p className="form-inline-error" role="alert">{schoolRequestError}</p>}<div className="profile-editor-actions"><button type="button" className="outline-button" onClick={closeSchoolRequest} disabled={schoolRequestBusy}>Cancel</button><button type="submit" className="primary-button" disabled={schoolRequestBusy}>{schoolRequestBusy ? 'Submitting…' : 'Submit request'}</button></div></form></div>}
   </div>;
 }
 
@@ -1254,10 +1340,15 @@ function ResourceReaderPage({ resource, returnPage, onNavigate, onAction }) {
 
 function ProfilePage({ onOpenSettings }) {
   const [activeTab, setActiveTab] = useState('overview');
+  const currentUser = useAppStore((state) => state.user);
+  const updateUser = useAppStore((state) => state.updateUser);
+  const showAction = useAppStore((state) => state.showAction);
   const profileDefaults = { name: 'SAMUEL KP', role: 'Student', form: 'Form 3', school: 'Blantyre Secondary School', department: 'Sciences & Technology', subjects: 'Biology, Chemistry, Mathematics', bio: 'Curious learner building a stronger foundation in science, mathematics, and the ideas that connect them.', visibility: 'My school', email: 'samuel.kp@example.com', phone: '+265 888 204 118', image: null };
-  const [profileDetails, setProfileDetails] = useState(() => ({ ...profileDefaults, ...readStoredValue('learnhub-profile-details', {}) }));
+  const [profileDetails, setProfileDetails] = useState(() => ({ ...profileDefaults, ...readStoredValue('learnhub-profile-details', {}), ...currentUser }));
   const [draftProfile, setDraftProfile] = useState(profileDetails);
   const [profileImageError, setProfileImageError] = useState('');
+  const [profileSaveError, setProfileSaveError] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const closeProfileEditor = useCallback(() => setIsEditing(false), []);
   const profileDialogRef = useDialogAccessibility(isEditing, closeProfileEditor);
@@ -1269,6 +1360,7 @@ function ProfilePage({ onOpenSettings }) {
   const openEditor = () => {
     setDraftProfile({ ...profileDetails });
     setProfileImageError('');
+    setProfileSaveError('');
     setIsEditing(true);
   };
 
@@ -1300,13 +1392,42 @@ function ProfilePage({ onOpenSettings }) {
     reader.readAsDataURL(file);
   };
 
-  const saveProfile = (event) => {
+  const saveProfile = async (event) => {
     event.preventDefault();
-    if (!draftProfile.name.trim() || profileImageError) return;
+    if (!draftProfile.name.trim() || profileImageError || isSavingProfile) return;
     const savedProfile = { ...draftProfile, name: draftProfile.name.trim(), subjects: draftProfile.subjects.trim(), bio: draftProfile.bio.trim() };
-    setProfileDetails(savedProfile);
-    writeStoredValue('learnhub-profile-details', savedProfile);
-    setIsEditing(false);
+    setProfileSaveError('');
+    setIsSavingProfile(true);
+    try {
+      if (supabase && currentUser?.id) {
+        await updateProfile(currentUser.id, {
+          name: savedProfile.name,
+          school: savedProfile.school.trim(),
+          form: savedProfile.form,
+          department: savedProfile.department.trim(),
+          subjects: savedProfile.subjects.split(',').map((subject) => subject.trim()).filter(Boolean),
+          registrationNumber: savedProfile.registrationNumber,
+          bio: savedProfile.bio,
+        });
+      }
+
+      setProfileDetails(savedProfile);
+      writeStoredValue('learnhub-profile-details', savedProfile);
+      updateUser({
+        name: savedProfile.name,
+        school: savedProfile.school,
+        form: savedProfile.form,
+        department: savedProfile.department,
+        subjects: savedProfile.subjects,
+        phone: savedProfile.phone,
+      });
+      showAction('Profile changes saved.');
+      setIsEditing(false);
+    } catch {
+      setProfileSaveError('Unable to save your profile right now. Please try again.');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const renderAvatar = (className) => profileImage
@@ -1336,12 +1457,13 @@ function ProfilePage({ onOpenSettings }) {
       {activeTab === 'library' && <section className="profile-panel profile-list-panel"><div className="panel-heading"><div><span className="eyebrow">Shared learning</span><h2>Saved collections</h2></div></div><div className="collection-list"><div><span className="collection-icon"><IconBook size={18} /></span><span><strong>Chemistry Study Pack</strong><small>12 resources · Updated 15 Sep 2026</small></span><IconChevronRight size={16} /></div><div><span className="collection-icon coral"><IconBook size={18} /></span><span><strong>Mathematics Past Papers</strong><small>15 resources · Updated 5 Sep 2026</small></span><IconChevronRight size={16} /></div></div></section>}
       {activeTab === 'activity' && <section className="profile-panel empty-profile-panel"><IconEye size={26} /><h2>Activity is private</h2><p>Recent reading, notes, and highlights are only visible to you.</p><button type="button" className="outline-button" onClick={onOpenSettings}>Review privacy settings</button></section>}
     </div>
-    {isEditing && <div className="profile-modal-backdrop" role="presentation"><form ref={profileDialogRef} role="dialog" aria-modal="true" aria-labelledby="profile-editor-title" className="profile-editor" onSubmit={saveProfile}><div className="profile-editor-heading"><div><span className="eyebrow">Profile details</span><h2 id="profile-editor-title">Edit profile</h2></div><button type="button" className="modal-close" aria-label="Close profile editor" onClick={closeProfileEditor}>×</button></div><div className="profile-editor-avatar">{draftProfile.image ? <img className="profile-image" src={draftProfile.image} alt="Profile preview" /> : <div className="profile-avatar profile-avatar-hero">{initials}</div>}<label className="upload-button"><IconPhoto size={15} /> Change picture<input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} /></label></div>{profileImageError && <p className="form-inline-error" role="alert">{profileImageError}</p>}<div className="profile-editor-grid"><label className="profile-field">Full name<input type="text" value={draftProfile.name} onChange={(event) => setDraftProfile({ ...draftProfile, name: event.target.value })} required /></label><label className="profile-field">Role<input type="text" value={draftProfile.role} onChange={(event) => setDraftProfile({ ...draftProfile, role: event.target.value })} required /></label><label className="profile-field">Class / Form<select value={draftProfile.form} onChange={(event) => setDraftProfile({ ...draftProfile, form: event.target.value })}><option>Form 1</option><option>Form 2</option><option>Form 3</option><option>Form 4</option></select></label><label className="profile-field">School<input type="text" value={draftProfile.school} onChange={(event) => setDraftProfile({ ...draftProfile, school: event.target.value })} required /></label><label className="profile-field">Department<input type="text" value={draftProfile.department} onChange={(event) => setDraftProfile({ ...draftProfile, department: event.target.value })} required /></label><label className="profile-field">Visibility<select value={draftProfile.visibility} onChange={(event) => setDraftProfile({ ...draftProfile, visibility: event.target.value })}><option>My school</option><option>My class</option><option>Everyone</option><option>Only me</option></select></label><label className="profile-field">Email address<input type="email" value={draftProfile.email} onChange={(event) => setDraftProfile({ ...draftProfile, email: event.target.value })} required /></label><label className="profile-field">Phone number<input type="tel" value={draftProfile.phone} onChange={(event) => setDraftProfile({ ...draftProfile, phone: event.target.value })} /></label></div><label className="profile-field">Preferred subjects<input type="text" value={draftProfile.subjects} onChange={(event) => setDraftProfile({ ...draftProfile, subjects: event.target.value })} placeholder="Biology, Chemistry, Mathematics" /></label><label className="profile-field">Bio<textarea value={draftProfile.bio} onChange={(event) => setDraftProfile({ ...draftProfile, bio: event.target.value })} maxLength={240} /></label><p className="profile-editor-note">Your profile details are shown according to your visibility setting.</p><div className="profile-editor-actions"><button type="button" className="outline-button" onClick={closeProfileEditor}>Cancel</button><button type="submit" className="primary-button">Save changes</button></div></form></div>}
+    {isEditing && <div className="profile-modal-backdrop" role="presentation"><form ref={profileDialogRef} role="dialog" aria-modal="true" aria-labelledby="profile-editor-title" className="profile-editor" onSubmit={saveProfile}><div className="profile-editor-heading"><div><span className="eyebrow">Profile details</span><h2 id="profile-editor-title">Edit profile</h2></div><button type="button" className="modal-close" aria-label="Close profile editor" onClick={closeProfileEditor}>×</button></div><div className="profile-editor-avatar">{draftProfile.image ? <img className="profile-image" src={draftProfile.image} alt="Profile preview" /> : <div className="profile-avatar profile-avatar-hero">{initials}</div>}<label className="upload-button"><IconPhoto size={15} /> Change picture<input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} /></label></div>{profileImageError && <p className="form-inline-error" role="alert">{profileImageError}</p>}{profileSaveError && <p className="form-inline-error" role="alert">{profileSaveError}</p>}<div className="profile-editor-grid"><label className="profile-field">Full name<input type="text" value={draftProfile.name} onChange={(event) => setDraftProfile({ ...draftProfile, name: event.target.value })} required /></label><label className="profile-field">Role<input type="text" value={draftProfile.role} readOnly /></label><label className="profile-field">Class / Form<select value={draftProfile.form} onChange={(event) => setDraftProfile({ ...draftProfile, form: event.target.value })}><option>Form 1</option><option>Form 2</option><option>Form 3</option><option>Form 4</option></select></label><label className="profile-field">School<input type="text" value={draftProfile.school} onChange={(event) => setDraftProfile({ ...draftProfile, school: event.target.value })} required /></label><label className="profile-field">Department<input type="text" value={draftProfile.department} onChange={(event) => setDraftProfile({ ...draftProfile, department: event.target.value })} required /></label><label className="profile-field">Visibility<select value={draftProfile.visibility} onChange={(event) => setDraftProfile({ ...draftProfile, visibility: event.target.value })}><option>My school</option><option>My class</option><option>Everyone</option><option>Only me</option></select></label><label className="profile-field">Email address<input type="email" value={draftProfile.email} readOnly /></label><label className="profile-field">Phone number<input type="tel" value={draftProfile.phone} onChange={(event) => setDraftProfile({ ...draftProfile, phone: event.target.value })} /></label></div><label className="profile-field">Preferred subjects<input type="text" value={draftProfile.subjects} onChange={(event) => setDraftProfile({ ...draftProfile, subjects: event.target.value })} placeholder="Biology, Chemistry, Mathematics" /></label><label className="profile-field">Bio<textarea value={draftProfile.bio} onChange={(event) => setDraftProfile({ ...draftProfile, bio: event.target.value })} maxLength={240} /></label><p className="profile-editor-note">Your profile details are shown according to your visibility setting.</p><div className="profile-editor-actions"><button type="button" className="outline-button" onClick={closeProfileEditor} disabled={isSavingProfile}>Cancel</button><button type="submit" className="primary-button" disabled={isSavingProfile}>{isSavingProfile ? 'Saving...' : 'Save changes'}</button></div></form></div>}
   </div>;
 }
 
 function AppContent() {
   const navigate = useNavigate();
+  const { signOut } = useLearnHubAuth();
   const [activeTab, setActiveTab] = useState('all');
   const [isHeaderShrunk, setIsHeaderShrunk] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -1357,12 +1479,14 @@ function AppContent() {
   const [selectedResource, setSelectedResource] = useState(null);
   const [resourceReturnPage, setResourceReturnPage] = useState('home');
   const [resourceCollection, setResourceCollection] = useState(null);
+  const actionMessage = useAppStore((state) => state.actionMessage);
   const showGlobalAction = useAppStore((state) => state.showAction);
   const logout = useAppStore((state) => state.logout);
+  const authenticatedUser = useAppStore((state) => state.user);
   const [libraryResourceKeys, setLibraryResourceKeys] = useSetStorageState('learnhub-library-keys', [...libraryItems, ...savedResources].map(resourceKey));
   const [downloadedResourceKeys, setDownloadedResourceKeys] = useSetStorageState('learnhub-downloaded-keys', libraryItems.map(resourceKey));
   const [postedResources, setPostedResources] = useLocalStorageState('learnhub-posted-resources', []);
-  const [feedPosts, setFeedPosts] = useLocalStorageState('learnhub-feed-posts', discoveryPosts);
+  const [feedPosts, setFeedPosts] = useState(() => supabase ? [] : readStoredValue('learnhub-feed-posts', discoveryPosts));
   const [discoverDraft, setDiscoverDraft] = useState('');
   const [discoverImage, setDiscoverImage] = useState('');
   const [discoverImageName, setDiscoverImageName] = useState('');
@@ -1377,15 +1501,17 @@ function AppContent() {
   const [discoverImageCaption, setDiscoverImageCaption] = useState('');
   const [discoverValidationErrors, setDiscoverValidationErrors] = useState([]);
   const [isDiscoverPreviewOpen, setIsDiscoverPreviewOpen] = useState(false);
-  const [, setDiscoverDraftPosts] = useLocalStorageState('learnhub-discover-drafts', []);
+  const discoverDraftsStorageKey = supabase && authenticatedUser?.id ? `learnhub-discover-drafts-${authenticatedUser.id}` : 'learnhub-discover-drafts';
+  const composerDraftStorageKey = supabase && authenticatedUser?.id ? `learnhub-discover-composer-draft-${authenticatedUser.id}` : 'learnhub-discover-composer-draft';
+  const [, setDiscoverDraftPosts] = useLocalStorageState(discoverDraftsStorageKey, []);
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [isPostImageDragging, setIsPostImageDragging] = useState(false);
   const [discoverFeedFilter, setDiscoverFeedFilter] = useState('all');
   const [discoverSearch, setDiscoverSearch] = useState('');
   const [isDiscoverSearchOpen, setIsDiscoverSearchOpen] = useState(false);
   const [activeReelPost, setActiveReelPost] = useState(null);
-  const [feedInteractions, setFeedInteractions] = useLocalStorageState('learnhub-feed-interactions', {});
-  const [postComments, setPostComments] = useLocalStorageState('learnhub-post-comments', initialPostComments);
+  const [feedInteractions, setFeedInteractions] = useState(() => supabase ? {} : readStoredValue('learnhub-feed-interactions', {}));
+  const [postComments, setPostComments] = useState(() => supabase ? {} : readStoredValue('learnhub-post-comments', initialPostComments));
   const [commentDrafts, setCommentDrafts] = useState({});
   const [replyDrafts, setReplyDrafts] = useState({});
   const [openCommentPosts, setOpenCommentPosts] = useState({});
@@ -1395,16 +1521,31 @@ function AppContent() {
   const [postMenuOpen, setPostMenuOpen] = useState(null);
   const [editingPostId, setEditingPostId] = useState(null);
   const [editingPostDraft, setEditingPostDraft] = useState('');
-  const [hiddenPostIds, setHiddenPostIds] = useLocalStorageState('learnhub-hidden-post-ids', []);
-  const [reportedPostIds, setReportedPostIds] = useLocalStorageState('learnhub-reported-post-ids', []);
-  const [, setPostReports] = useLocalStorageState('learnhub-post-reports', []);
+  const [hiddenPostIds, setHiddenPostIds] = useState(() => supabase ? [] : readStoredValue('learnhub-hidden-post-ids', []));
+  const [reportedPostIds, setReportedPostIds] = useState(() => supabase ? [] : readStoredValue('learnhub-reported-post-ids', []));
+  const [, setPostReports] = useState(() => supabase ? [] : readStoredValue('learnhub-post-reports', []));
   const [reportDialogPost, setReportDialogPost] = useState(null);
   const [reportCategory, setReportCategory] = useState('spam');
   const [pendingFeedAction, setPendingFeedAction] = useState(null);
   const [feedNotifications, setFeedNotifications] = useState([]);
   const [feedLoading, setFeedLoading] = useState(false);
   const [feedError, setFeedError] = useState('');
-  const [currentUser] = useState(() => readStoredValue('learnhub-current-user', defaultCurrentUser));
+  const [feedOwnerId, setFeedOwnerId] = useState(null);
+  const [localCurrentUser] = useState(() => readStoredValue('learnhub-current-user', defaultCurrentUser));
+  const currentUser = authenticatedUser
+    ? {
+      ...localCurrentUser,
+      ...authenticatedUser,
+      initials: authenticatedUser.name?.split(/\s+/).map((part) => part[0]).join('').slice(0, 3) || 'LH',
+      role: `${authenticatedUser.role || 'Student'}${authenticatedUser.form ? ` · ${authenticatedUser.form}` : ''}`,
+    }
+    : localCurrentUser;
+  const [feedFollows, setFeedFollows] = useState(() => supabase ? [] : readStoredValue('learnhub-feed-follows', [
+    { target_key: 'kmoyo', target_type: 'person', target_name: 'K. Moyo', target_school: 'Blantyre Secondary' },
+    { target_key: 'fnyirenda', target_type: 'person', target_name: 'F. Nyirenda', target_school: 'University of Malawi' },
+    { target_key: 'lphiri', target_type: 'person', target_name: 'L. Phiri', target_school: 'Blantyre Secondary' },
+    { target_key: 'kchirwa', target_type: 'person', target_name: 'K. Chirwa', target_school: 'University of Malawi' },
+  ]));
   const [feedVisibleCount, setFeedVisibleCount] = useState(5);
   const recentCommentTimesRef = useRef([]);
   const recentPostTimesRef = useRef([]);
@@ -1413,6 +1554,54 @@ function AppContent() {
   const reelVideoRef = useRef(null);
   const reelTouchStartY = useRef(null);
   const reelNavigationLock = useRef(false);
+
+  useEffect(() => {
+    if (!supabase) {
+      writeStoredValue('learnhub-feed-posts', feedPosts);
+      writeStoredValue('learnhub-feed-interactions', feedInteractions);
+      writeStoredValue('learnhub-post-comments', postComments);
+      writeStoredValue('learnhub-hidden-post-ids', hiddenPostIds);
+      writeStoredValue('learnhub-reported-post-ids', reportedPostIds);
+      writeStoredValue('learnhub-feed-follows', feedFollows);
+    }
+  }, [feedPosts, feedInteractions, postComments, hiddenPostIds, reportedPostIds, feedFollows]);
+
+  useEffect(() => {
+    if (!supabase || currentPage !== 'discover' || !authenticatedUser?.id) return undefined;
+    let isActive = true;
+    setFeedOwnerId(null);
+    setFeedPosts([]);
+    setPostComments({});
+    setFeedInteractions({});
+    setHiddenPostIds([]);
+    setReportedPostIds([]);
+    setFeedFollows([]);
+    setFeedLoading(true);
+    setFeedError('');
+    void loadSocialFeed(authenticatedUser.id)
+      .then((data) => {
+        if (!isActive) return;
+        setFeedPosts(data.posts);
+        setPostComments(data.commentsByPost);
+        setFeedInteractions(data.interactions);
+        setHiddenPostIds(data.hiddenPostIds);
+        setReportedPostIds(data.reportedPostIds);
+        setFeedFollows(data.follows);
+        setFeedOwnerId(authenticatedUser.id);
+      })
+      .catch(() => {
+        if (!isActive) return;
+        setFeedPosts([]);
+        setPostComments({});
+        setFeedError('Unable to load the Discover feed. Please refresh and try again.');
+      })
+      .finally(() => {
+        if (isActive) setFeedLoading(false);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [currentPage, authenticatedUser?.id]);
 
   useEffect(() => {
     if (!isDiscoverSearchOpen) return undefined;
@@ -1438,8 +1627,8 @@ function AppContent() {
   };
 
   useEffect(() => {
-    writeStoredValue('learnhub-discover-composer-draft', { content: discoverDraft, image: discoverImage, imageName: discoverImageName, imageMeta: discoverImageMeta, postType: discoverPostType, subject: discoverSubject, department: discoverDepartment, classForm: discoverClass, topic: discoverTopic, relatedResource: discoverRelatedResource, imageCaption: discoverImageCaption, imageAlt: discoverImageAlt });
-  }, [discoverDraft, discoverImage, discoverImageName, discoverImageMeta, discoverPostType, discoverSubject, discoverDepartment, discoverClass, discoverTopic, discoverRelatedResource, discoverImageCaption, discoverImageAlt]);
+    writeStoredValue(composerDraftStorageKey, { content: discoverDraft, image: discoverImage, imageName: discoverImageName, imageMeta: discoverImageMeta, postType: discoverPostType, subject: discoverSubject, department: discoverDepartment, classForm: discoverClass, topic: discoverTopic, relatedResource: discoverRelatedResource, imageCaption: discoverImageCaption, imageAlt: discoverImageAlt });
+  }, [discoverDraft, discoverImage, discoverImageName, discoverImageMeta, discoverPostType, discoverSubject, discoverDepartment, discoverClass, discoverTopic, discoverRelatedResource, discoverImageCaption, discoverImageAlt, composerDraftStorageKey]);
 
   const showAction = (message) => {
     showGlobalAction(message);
@@ -1564,17 +1753,47 @@ function AppContent() {
     return '';
   };
 
-  const createFeedPost = (event) => {
+  const createFeedPost = async (event) => {
     event.preventDefault();
     const errors = validateDiscoverPost();
     if (errors.length) return;
     const moderationError = moderationErrorFor(discoverDraft.trim(), 'post');
     if (moderationError) { setDiscoverValidationErrors([moderationError]); return; }
+    setFeedLoading(true);
+    setFeedError('');
+    if (supabase && authenticatedUser?.id) {
+      try {
+        const post = await createSocialPost({
+          author_id: authenticatedUser.id,
+          author_name: currentUser.name,
+          author_role: currentUser.role,
+          author_school: currentUser.school || '',
+          author_avatar: currentUser.initials,
+          post_type: discoverPostType,
+          content: discoverDraft.trim(),
+          subject: discoverSubject,
+          department: discoverDepartment,
+          class_form: discoverClass,
+          topic: discoverTopic,
+          related_resource_id: discoverRelatedResource || null,
+          image_alt: discoverImageAlt.trim(),
+          image_caption: discoverImageCaption.trim(),
+        }, discoverImage);
+        setFeedPosts((currentPosts) => [post, ...currentPosts]);
+        resetDiscoverComposer();
+        setIsCreatePostOpen(false);
+        showAction('Post published.');
+      } catch (error) {
+        setFeedError(error.message || 'Unable to publish your post. Please try again.');
+      } finally {
+        setFeedLoading(false);
+      }
+      return;
+    }
+
     const createdDate = new Date().toISOString();
     const media = discoverImage ? { post: `post-${Date.now()}`, filePath: discoverImageName, fileType: discoverImageMeta.type, fileSize: discoverImageMeta.size, imageWidth: discoverImageMeta.width, imageHeight: discoverImageMeta.height, altText: discoverImageAlt.trim(), caption: discoverImageCaption.trim(), displayOrder: 0 } : null;
     const newPost = { id: `post-${Date.now()}`, type: discoverPostType, author: currentUser.name, authorAvatar: currentUser.initials, school: currentUser.school, time: 'Just now', content: discoverDraft.trim(), image: discoverImage, subject: discoverSubject, department: discoverDepartment, classForm: discoverClass, topic: discoverTopic, relatedResource: discoverRelatedResource, status: 'published', createdDate, media, likes: 0, comments: 0, shares: 0 };
-    setFeedLoading(true);
-    setFeedError('');
     window.setTimeout(() => {
       setFeedPosts((currentPosts) => [newPost, ...currentPosts]);
       resetDiscoverComposer();
@@ -1628,7 +1847,7 @@ function AppContent() {
   const feedDialogRef = useDialogAccessibility(Boolean(pendingFeedAction || reportDialogPost), closeFeedDialogs);
 
   const openCreatePost = () => {
-    const savedComposer = readStoredValue('learnhub-discover-composer-draft', null);
+    const savedComposer = readStoredValue(composerDraftStorageKey, null);
     if (!discoverDraft && (savedComposer?.content || savedComposer?.image)) {
       setDiscoverDraft(savedComposer.content || '');
       setDiscoverPostType(savedComposer.postType || 'question');
@@ -1666,30 +1885,78 @@ function AppContent() {
     };
   }, [isCreatePostOpen]);
 
-  const interactWithPost = (postId, action) => {
-    setFeedInteractions((currentInteractions) => {
-      const current = currentInteractions[postId] || {};
-      if (action === 'like') return { ...currentInteractions, [postId]: { ...current, liked: !current.liked } };
-      if (action === 'repost') return { ...currentInteractions, [postId]: { ...current, reposted: !current.reposted } };
-      return currentInteractions;
-    });
+  const interactWithPost = async (postId, action) => {
     if (action === 'comment') {
       setOpenCommentPosts((currentOpenPosts) => ({ ...currentOpenPosts, [postId]: !currentOpenPosts[postId] }));
       return;
     }
+    const interactionKey = action === 'like' ? 'liked' : 'reposted';
+    const current = feedInteractions[postId] || {};
+    const active = !current[interactionKey];
+    if (supabase && isSupabaseId(postId) && authenticatedUser?.id) {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        await setSocialReaction(postId, authenticatedUser.id, action, active);
+      } catch (error) {
+        setFeedError(error.message || 'Unable to save your reaction. Please try again.');
+        setFeedLoading(false);
+        return;
+      }
+      setFeedLoading(false);
+    }
+    setFeedInteractions((currentInteractions) => {
+      const current = currentInteractions[postId] || {};
+      if (action === 'like') return { ...currentInteractions, [postId]: { ...current, liked: active } };
+      if (action === 'repost') return { ...currentInteractions, [postId]: { ...current, reposted: active } };
+      return currentInteractions;
+    });
     if (action === 'like') showAction('Like updated.');
     if (action === 'repost') showAction('Repost updated.');
   };
 
-  const addComment = (postId, event) => {
+  const addComment = async (postId, event) => {
     event.preventDefault();
     const content = (commentDrafts[postId] || '').trim();
     if (!content) return;
     const moderationError = moderationErrorFor(content, 'comment');
     if (moderationError) { setFeedError(moderationError); return; }
-    const comment = { id: `comment-${Date.now()}`, authorId: currentUser.id, author: currentUser.name, authorAvatar: currentUser.initials, content, likes: 0, liked: false, replies: [], createdDate: new Date().toISOString() };
     setFeedLoading(true);
     setFeedError('');
+    if (supabase && isSupabaseId(postId) && authenticatedUser?.id) {
+      try {
+        const row = await createSocialComment({
+          post_id: postId,
+          parent_comment_id: null,
+          author_id: authenticatedUser.id,
+          author_name: currentUser.name,
+          author_avatar: currentUser.initials,
+          content,
+        });
+        const comment = {
+          id: row.id,
+          authorId: row.author_id,
+          author: row.author_name,
+          authorAvatar: row.author_avatar,
+          content: row.content,
+          likes: 0,
+          liked: false,
+          replies: [],
+          createdDate: row.created_at,
+        };
+        setPostComments((currentComments) => ({ ...currentComments, [postId]: [...(currentComments[postId] || []), comment] }));
+        setCommentDrafts((currentDrafts) => ({ ...currentDrafts, [postId]: '' }));
+        setOpenCommentPosts((currentOpenPosts) => ({ ...currentOpenPosts, [postId]: true }));
+        addFeedNotification('Comment posted', 'Your comment was added to the discussion.');
+        showAction('Comment added.');
+      } catch (error) {
+        setFeedError(error.message || 'Unable to post your comment. Please try again.');
+      } finally {
+        setFeedLoading(false);
+      }
+      return;
+    }
+    const comment = { id: `comment-${Date.now()}`, authorId: currentUser.id, author: currentUser.name, authorAvatar: currentUser.initials, content, likes: 0, liked: false, replies: [], createdDate: new Date().toISOString() };
     window.setTimeout(() => {
       setPostComments((currentComments) => ({ ...currentComments, [postId]: [...(currentComments[postId] || []), comment] }));
       setCommentDrafts((currentDrafts) => ({ ...currentDrafts, [postId]: '' }));
@@ -1700,7 +1967,21 @@ function AppContent() {
     }, 180);
   };
 
-  const toggleCommentLike = (postId, commentId) => {
+  const toggleCommentLike = async (postId, commentId) => {
+    const comment = (postComments[postId] || []).find((item) => item.id === commentId);
+    const active = !comment?.liked;
+    if (supabase && isSupabaseId(commentId) && authenticatedUser?.id) {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        await setSocialCommentReaction(commentId, authenticatedUser.id, active);
+      } catch (error) {
+        setFeedError(error.message || 'Unable to save your comment reaction. Please try again.');
+        setFeedLoading(false);
+        return;
+      }
+      setFeedLoading(false);
+    }
     setPostComments((currentComments) => ({
       ...currentComments,
       [postId]: (currentComments[postId] || []).map((comment) => comment.id === commentId ? { ...comment, liked: !comment.liked, likes: comment.likes + (comment.liked ? -1 : 1) } : comment),
@@ -1712,16 +1993,51 @@ function AppContent() {
     setReplyDrafts((currentDrafts) => ({ ...currentDrafts, [`${postId}:${commentId}`]: currentDrafts[`${postId}:${commentId}`] || '' }));
   };
 
-  const addReply = (postId, commentId, event) => {
+  const addReply = async (postId, commentId, event) => {
     event.preventDefault();
     const replyKey = `${postId}:${commentId}`;
     const content = (replyDrafts[replyKey] || '').trim();
     if (!content) return;
     const moderationError = moderationErrorFor(content, 'comment');
     if (moderationError) { setFeedError(moderationError); return; }
-    const reply = { id: `reply-${Date.now()}`, authorId: currentUser.id, author: currentUser.name, authorAvatar: currentUser.initials, content, liked: false, likes: 0, createdDate: new Date().toISOString() };
     setFeedLoading(true);
     setFeedError('');
+    if (supabase && isSupabaseId(postId) && isSupabaseId(commentId) && authenticatedUser?.id) {
+      try {
+        const row = await createSocialComment({
+          post_id: postId,
+          parent_comment_id: commentId,
+          author_id: authenticatedUser.id,
+          author_name: currentUser.name,
+          author_avatar: currentUser.initials,
+          content,
+        });
+        const reply = {
+          id: row.id,
+          authorId: row.author_id,
+          author: row.author_name,
+          authorAvatar: row.author_avatar,
+          content: row.content,
+          liked: false,
+          likes: 0,
+          createdDate: row.created_at,
+        };
+        setPostComments((currentComments) => ({
+          ...currentComments,
+          [postId]: (currentComments[postId] || []).map((comment) => comment.id === commentId ? { ...comment, replies: [...(comment.replies || []), reply] } : comment),
+        }));
+        setReplyDrafts((currentDrafts) => ({ ...currentDrafts, [replyKey]: '' }));
+        setActiveReply(null);
+        addFeedNotification('Reply posted', 'Your reply was added to the discussion.');
+        showAction('Reply added.');
+      } catch (error) {
+        setFeedError(error.message || 'Unable to post your reply. Please try again.');
+      } finally {
+        setFeedLoading(false);
+      }
+      return;
+    }
+    const reply = { id: `reply-${Date.now()}`, authorId: currentUser.id, author: currentUser.name, authorAvatar: currentUser.initials, content, liked: false, likes: 0, createdDate: new Date().toISOString() };
     window.setTimeout(() => {
       setPostComments((currentComments) => ({
         ...currentComments,
@@ -1735,13 +2051,39 @@ function AppContent() {
     }, 180);
   };
 
-  const toggleReplyLike = (postId, commentId, replyId) => {
+  const toggleReplyLike = async (postId, commentId, replyId) => {
+    const reply = (postComments[postId] || []).find((comment) => comment.id === commentId)?.replies?.find((item) => item.id === replyId);
+    const active = !reply?.liked;
+    if (supabase && isSupabaseId(replyId) && authenticatedUser?.id) {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        await setSocialCommentReaction(replyId, authenticatedUser.id, active);
+      } catch (error) {
+        setFeedError(error.message || 'Unable to save your reply reaction. Please try again.');
+        setFeedLoading(false);
+        return;
+      }
+      setFeedLoading(false);
+    }
     setPostComments((currentComments) => ({ ...currentComments, [postId]: (currentComments[postId] || []).map((comment) => comment.id === commentId ? { ...comment, replies: (comment.replies || []).map((reply) => reply.id === replyId ? { ...reply, liked: !reply.liked, likes: reply.likes + (reply.liked ? -1 : 1) } : reply) } : comment) }));
   };
 
-  const editComment = (postId, commentId, content) => {
+  const editComment = async (postId, commentId, content) => {
     const moderationError = moderationErrorFor(content.trim(), 'comment');
     if (!content.trim() || moderationError) { setFeedError(moderationError || 'Comment cannot be empty.'); return; }
+    if (supabase && isSupabaseId(commentId)) {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        await updateSocialComment(commentId, content.trim());
+      } catch (error) {
+        setFeedError(error.message || 'Unable to update your comment. Please try again.');
+        setFeedLoading(false);
+        return;
+      }
+      setFeedLoading(false);
+    }
     setPostComments((currentComments) => ({ ...currentComments, [postId]: (currentComments[postId] || []).map((comment) => comment.id === commentId ? { ...comment, content: content.trim(), edited: true } : comment) }));
     setEditingComment(null);
     showAction('Comment updated.');
@@ -1751,7 +2093,19 @@ function AppContent() {
     setPendingFeedAction({ type: 'delete-comment', postId, commentId });
   };
 
-  const confirmDeleteComment = (postId, commentId) => {
+  const confirmDeleteComment = async (postId, commentId) => {
+    if (supabase && isSupabaseId(commentId)) {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        await deleteSocialComment(commentId);
+      } catch (error) {
+        setFeedError(error.message || 'Unable to delete your comment. Please try again.');
+        setFeedLoading(false);
+        return;
+      }
+      setFeedLoading(false);
+    }
     setPostComments((currentComments) => ({ ...currentComments, [postId]: (currentComments[postId] || []).filter((comment) => comment.id !== commentId) }));
     setPendingFeedAction(null);
     showAction('Comment deleted.');
@@ -1761,7 +2115,19 @@ function AppContent() {
     setPendingFeedAction({ type: 'delete-reply', postId, commentId, replyId });
   };
 
-  const confirmDeleteReply = (postId, commentId, replyId) => {
+  const confirmDeleteReply = async (postId, commentId, replyId) => {
+    if (supabase && isSupabaseId(replyId)) {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        await deleteSocialComment(replyId);
+      } catch (error) {
+        setFeedError(error.message || 'Unable to delete your reply. Please try again.');
+        setFeedLoading(false);
+        return;
+      }
+      setFeedLoading(false);
+    }
     setPostComments((currentComments) => ({ ...currentComments, [postId]: (currentComments[postId] || []).map((comment) => comment.id === commentId ? { ...comment, replies: (comment.replies || []).filter((reply) => reply.id !== replyId) } : comment) }));
     setPendingFeedAction(null);
     showAction('Reply deleted.');
@@ -1774,11 +2140,23 @@ function AppContent() {
     setPostMenuOpen(null);
   };
 
-  const savePostEdit = (postId, event) => {
+  const savePostEdit = async (postId, event) => {
     event.preventDefault();
     const content = editingPostDraft.trim();
     const moderationError = moderationErrorFor(content, 'post');
     if (!content || moderationError) { setFeedError(moderationError || 'Post cannot be empty.'); return; }
+    if (supabase && isSupabaseId(postId)) {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        await updateSocialPost(postId, content);
+      } catch (error) {
+        setFeedError(error.message || 'Unable to update your post. Please try again.');
+        setFeedLoading(false);
+        return;
+      }
+      setFeedLoading(false);
+    }
     setFeedPosts((currentPosts) => currentPosts.map((post) => post.id === postId ? { ...post, content, edited: true } : post));
     setEditingPostId(null);
     setEditingPostDraft('');
@@ -1791,10 +2169,24 @@ function AppContent() {
     setPostMenuOpen(null);
   };
 
-  const confirmDeletePost = (post) => {
+  const confirmDeletePost = async (post) => {
+    let imageCleanupFailed = false;
+    if (supabase && isSupabaseId(post.id)) {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        const result = await deleteSocialPost(post.id, post.imagePath);
+        imageCleanupFailed = result.imageCleanupFailed;
+      } catch (error) {
+        setFeedError(error.message || 'Unable to delete your post. Please try again.');
+        setFeedLoading(false);
+        return;
+      }
+      setFeedLoading(false);
+    }
     setFeedPosts((currentPosts) => currentPosts.filter((item) => item.id !== post.id));
     setPendingFeedAction(null);
-    showAction('Post deleted.');
+    showAction(imageCleanupFailed ? 'Post deleted, but its image could not be removed.' : 'Post deleted.');
   };
 
   const hidePost = (postId) => {
@@ -1802,7 +2194,19 @@ function AppContent() {
     setPostMenuOpen(null);
   };
 
-  const confirmHidePost = (postId) => {
+  const confirmHidePost = async (postId) => {
+    if (supabase && isSupabaseId(postId) && authenticatedUser?.id) {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        await hideSocialPost(postId, authenticatedUser.id, true);
+      } catch (error) {
+        setFeedError(error.message || 'Unable to hide this post. Please try again.');
+        setFeedLoading(false);
+        return;
+      }
+      setFeedLoading(false);
+    }
     setHiddenPostIds((currentIds) => [...currentIds, postId]);
     setPendingFeedAction(null);
     showAction('Post hidden from your feed.');
@@ -1814,9 +2218,21 @@ function AppContent() {
     setPostMenuOpen(null);
   };
 
-  const submitPostReport = (event) => {
+  const submitPostReport = async (event) => {
     event.preventDefault();
     if (!reportDialogPost) return;
+    if (supabase && isSupabaseId(reportDialogPost.id) && authenticatedUser?.id) {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        await reportSocialPost(reportDialogPost.id, authenticatedUser.id, reportCategory);
+      } catch (error) {
+        setFeedError(error.message || 'Unable to submit this report. Please try again.');
+        setFeedLoading(false);
+        return;
+      }
+      setFeedLoading(false);
+    }
     const report = { id: `report-${Date.now()}`, postId: reportDialogPost.id, category: reportCategory, status: 'pending', createdDate: new Date().toISOString() };
     setPostReports((currentReports) => [...currentReports, report]);
     setReportedPostIds((currentIds) => currentIds.includes(reportDialogPost.id) ? currentIds : [...currentIds, reportDialogPost.id]);
@@ -1825,11 +2241,45 @@ function AppContent() {
     showAction('Report submitted for review.');
   };
 
-  const filteredFeedPosts = feedPosts.filter((post) => {
-    const matchesFilter = discoverFeedFilter === 'all' || (discoverFeedFilter === 'videos' && post.type === 'video') || (discoverFeedFilter === 'followed' && post.school === 'Blantyre Secondary School');
+  const toggleFollow = async (follow) => {
+    const existing = feedFollows.some((item) => item.target_key === follow.target_key && item.target_type === follow.target_type);
+    if (supabase && authenticatedUser?.id) {
+      setFeedLoading(true);
+      setFeedError('');
+      try {
+        await setSocialFollow(follow, authenticatedUser.id, !existing);
+      } catch (error) {
+        setFeedError(error.message || 'Unable to update your followed accounts. Please try again.');
+        setFeedLoading(false);
+        return;
+      }
+      setFeedLoading(false);
+    }
+    setFeedFollows((follows) => existing
+      ? follows.filter((item) => item.target_key !== follow.target_key || item.target_type !== follow.target_type)
+      : [...follows, follow]);
+    showAction(existing ? 'Unfollowed.' : 'Now following.');
+  };
+
+  const feedDataReady = !supabase || feedOwnerId === authenticatedUser?.id;
+  const currentFeedPosts = feedDataReady ? feedPosts : [];
+  const currentFeedFollows = feedDataReady ? feedFollows : [];
+  const filteredFeedPosts = currentFeedPosts.filter((post) => {
+    const matchesFollow = currentFeedFollows.some((follow) => (
+      follow.target_type === 'school'
+        ? follow.target_name === post.school || follow.target_school === post.school
+        : follow.target_name === post.author
+    ));
+    const matchesFilter = discoverFeedFilter === 'all'
+      || (discoverFeedFilter === 'videos' && post.type === 'video')
+      || (discoverFeedFilter === 'followed' && matchesFollow);
     const searchableText = `${post.title || ''} ${post.content || ''} ${post.subject || ''} ${post.author || ''}`.toLowerCase();
     return !hiddenPostIds.includes(post.id) && matchesFilter && (!discoverSearch || searchableText.includes(discoverSearch.toLowerCase()));
   });
+  const suggestedSchoolFollows = [
+    { target_key: 'kamuzu-academy', target_type: 'school', target_name: 'Kamuzu Academy', target_school: 'Kamuzu Academy' },
+    { target_key: 'marist-secondary', target_type: 'school', target_name: 'Marist Secondary', target_school: 'Marist Secondary' },
+  ];
   const visibleFeedPosts = filteredFeedPosts.slice(0, feedVisibleCount);
   const reelPosts = filteredFeedPosts.filter((post) => post.type === 'video');
   const moveToReel = useCallback((direction) => {
@@ -1997,22 +2447,18 @@ function AppContent() {
       navigateTo('profile');
     } else if (/^(Settings|Review privacy settings)/i.test(label)) {
       navigateTo('settings');
-    } else if (/^(Follow|Following|Like|Comment|Repost|Add photo|Add document|Add video|Ask a question)/i.test(label)) {
-      showAction(`${label || 'Action'} is ready to connect.`);
     } else if (control?.classList.contains('save-book')) {
       const titleNode = card?.querySelector('.kindle-title, .library-title, .continue-title');
       const resource = titleNode && (postedResources.find((item) => item.title === titleNode.textContent.trim()) || resourceByTitle(titleNode.textContent.trim()));
       if (resource) toggleLibrary(resource);
     } else if (control?.classList.contains('popover-signout') || /^(Log out|Sign out)/i.test(label)) {
-      void clearSupabaseSession().then(() => {
+      void signOut({ redirectUrl: '/login' }).then(() => {
         logout();
         showGlobalAction('You have been logged out successfully.');
         navigate('/login');
       }).catch(() => {
         showGlobalAction('Unable to sign out right now. Please try again.');
       });
-    } else if (control?.type === 'button' && !control.closest('.settings-nav')) {
-      showAction(`${label || 'This action'} is ready to connect.`);
     }
   };
 
@@ -3167,38 +3613,8 @@ function AppContent() {
                   <div className="sidebar-section">
                     <h3 className="sidebar-section-title">Followed Accounts</h3>
                     <div className="sidebar-followed">
-                      <div className="followed-item">
-                        <div className="followed-avatar">KM</div>
-                        <div className="followed-info">
-                          <span className="followed-name">K. Moyo</span>
-                          <span className="followed-school">Blantyre Secondary</span>
-                        </div>
-                        <button className="followed-btn">Following</button>
-                      </div>
-                      <div className="followed-item">
-                        <div className="followed-avatar">FN</div>
-                        <div className="followed-info">
-                          <span className="followed-name">F. Nyirenda</span>
-                          <span className="followed-school">University of Malawi</span>
-                        </div>
-                        <button className="followed-btn">Following</button>
-                      </div>
-                      <div className="followed-item">
-                        <div className="followed-avatar">LP</div>
-                        <div className="followed-info">
-                          <span className="followed-name">L. Phiri</span>
-                          <span className="followed-school">Blantyre Secondary</span>
-                        </div>
-                        <button className="followed-btn">Following</button>
-                      </div>
-                      <div className="followed-item">
-                        <div className="followed-avatar">KC</div>
-                        <div className="followed-info">
-                          <span className="followed-name">K. Chirwa</span>
-                          <span className="followed-school">University of Malawi</span>
-                        </div>
-                        <button className="followed-btn">Following</button>
-                      </div>
+                      {currentFeedFollows.filter((follow) => follow.target_type === 'person').map((follow) => <div className="followed-item" key={`${follow.target_type}-${follow.target_key}`}><div className="followed-avatar">{follow.target_name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</div><div className="followed-info"><span className="followed-name">{follow.target_name}</span><span className="followed-school">{follow.target_school}</span></div><button type="button" className="followed-btn" onClick={() => void toggleFollow(follow)}>Following</button></div>)}
+                      {!currentFeedFollows.some((follow) => follow.target_type === 'person') && <p className="empty-followed">No followed accounts yet.</p>}
                     </div>
                   </div>
 
@@ -3206,22 +3622,10 @@ function AppContent() {
                   <div className="sidebar-section">
                     <h3 className="sidebar-section-title">Suggested Schools</h3>
                     <div className="sidebar-suggestions">
-                      <div className="suggestion-item">
-                        <div className="suggestion-avatar">KA</div>
-                        <div className="suggestion-info">
-                          <span className="suggestion-name">Kamuzu Academy</span>
-                          <span className="suggestion-followers">12.4k followers</span>
-                        </div>
-                        <button className="suggestion-btn">Follow</button>
-                      </div>
-                      <div className="suggestion-item">
-                        <div className="suggestion-avatar">MS</div>
-                        <div className="suggestion-info">
-                          <span className="suggestion-name">Marist Secondary</span>
-                          <span className="suggestion-followers">8.2k followers</span>
-                        </div>
-                        <button className="suggestion-btn">Follow</button>
-                      </div>
+                      {suggestedSchoolFollows.map((follow) => {
+                        const following = currentFeedFollows.some((item) => item.target_key === follow.target_key && item.target_type === follow.target_type);
+                        return <div className="suggestion-item" key={follow.target_key}><div className="suggestion-avatar">{follow.target_name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase()}</div><div className="suggestion-info"><span className="suggestion-name">{follow.target_name}</span><span className="suggestion-followers">School community</span></div><button type="button" className="suggestion-btn" aria-pressed={following} onClick={() => void toggleFollow(follow)}>{following ? 'Following' : 'Follow'}</button></div>;
+                      })}
                     </div>
                   </div>
                 </aside>
@@ -3263,6 +3667,10 @@ function AppContent() {
         resource={selectedResource}
         onOpenResource={openAssistantResource}
       />
+      {actionMessage && createPortal(
+        <div className="app-action-toast" role="status" aria-live="polite">{actionMessage}</div>,
+        document.body,
+      )}
       {currentPage !== 'home' && <MobileScholasticMenu isOpen={isMobileMenuOpen} onClose={() => setIsMobileMenuOpen(false)} onNavigate={navigateFromMobileMenu} />}
       {activeReelPost && createPortal(<div
         className="discover-reel-backdrop"
@@ -3334,6 +3742,7 @@ function AuthAwareRoutes() {
   return <Routes>
     <Route path="/login" element={<AuthPage />} />
     <Route path="/register" element={<AuthPage />} />
+    <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/complete-profile" element={<ProtectedRoute><CompleteProfile /></ProtectedRoute>} />
     <Route path="*" element={<ProtectedRoute><AppContent /></ProtectedRoute>} />
   </Routes>;

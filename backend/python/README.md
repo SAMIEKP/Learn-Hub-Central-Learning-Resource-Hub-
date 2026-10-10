@@ -36,18 +36,27 @@ Python service must also set `CLIENT_ORIGIN` to the deployed React site's
 origin. The deployed React app must set its existing
 `REACT_APP_SEARCH_API_URL` to this service's base URL.
 
-Assistant requests require a Supabase access token. The Python service checks
-the token with Supabase Auth, then queries verified resources using that
-student's JWT and `SUPABASE_ANON_KEY`, so Supabase row-level security applies;
-the service-role key is not used for assistant retrieval. Configure the React
-app's existing `REACT_APP_SUPABASE_URL` and
-`REACT_APP_SUPABASE_PUBLISHABLE_KEY` (or `REACT_APP_SUPABASE_ANON_KEY`) so its
-login and signup forms establish real sessions. `SUPABASE_ANON_KEY` is the
-server-side anon/publishable client key, not a service-role key. Assistant
+Assistant requests require a Clerk session token. The service validates the
+token signature against Clerk's JWKS and checks its issuer before using that
+same token to query verified resources through Supabase RLS. Configure
+`CLERK_ISSUER` to the exact issuer URL from a Clerk session token (without a
+trailing slash); `CLERK_JWKS_URL` is optional and defaults to the issuer's
+`/.well-known/jwks.json`. The Supabase project must trust that Clerk instance
+as a third-party auth provider. The service-role key is not used for assistant
+retrieval.
+
+Configure frontend `REACT_APP_CLERK_PUBLISHABLE_KEY`,
+`REACT_APP_SUPABASE_URL`, and `REACT_APP_SUPABASE_PUBLISHABLE_KEY` (or
+`REACT_APP_SUPABASE_ANON_KEY`). Keep all secret keys server-side. Assistant
 conversation history is request-only and is not stored by LearnHub. A
 per-user, in-memory rate limit allows 10 requests per minute per Python
 process; use a shared gateway or distributed limiter when deploying multiple
 workers/replicas.
+
+Google and Facebook sign-in are configured in Clerk, not Supabase Auth. Enable
+the desired OAuth providers in the Clerk Dashboard and configure their callback
+URLs there. Clerk redirects back to the Learn Hub origin and
+`/complete-profile`.
 
 The request body accepts a `question`, optional `context` for the resource
 currently being viewed, and recent `history`. Context helps rank the viewed

@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconBook, IconUser, IconSchool, IconPhone, IconBuilding, IconArrowRight, IconX } from '@tabler/icons-react';
 import { useAppStore } from '../store/useAppStore';
+import { updateProfile } from '../api/profiles';
 import { writeStoredValue } from '../utils/storage';
 import './Auth.css';
 
 export default function CompleteProfile() {
   const navigate = useNavigate();
-  const { user, showAction } = useAppStore();
+  const { user, showAction, updateUser } = useAppStore();
   const [isLoading, setIsLoading] = useState(false);
+  const [feedback, setFeedback] = useState('');
   const [formData, setFormData] = useState({
     school: '',
     form: '',
@@ -36,8 +38,8 @@ export default function CompleteProfile() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    setFeedback('');
 
-    // Update user profile with additional information
     const updatedProfile = {
       ...user,
       school: formData.school || 'Not specified',
@@ -48,15 +50,30 @@ export default function CompleteProfile() {
       subjects: selectedSubjects.join(', ') || 'Not specified',
     };
 
-    // Store in localStorage
-    writeStoredValue('learnhub-profile-details', updatedProfile);
+    try {
+      if (user?.id) {
+        await updateProfile(user.id, {
+          name: user.name,
+          school: formData.school.trim(),
+          form: formData.form,
+          department: formData.department.trim(),
+          registrationNumber: formData.registrationNumber.trim(),
+          phone: formData.phone.trim(),
+          subjects: selectedSubjects,
+          bio: '',
+          avatarPath: null,
+        });
+      }
 
-    // Update store
-    setTimeout(() => {
+      writeStoredValue('learnhub-profile-details', updatedProfile);
+      updateUser(updatedProfile);
       showAction('Profile completed successfully!');
       setIsLoading(false);
       navigate('/');
-    }, 1000);
+    } catch {
+      setFeedback('Unable to save your profile right now. Please try again.');
+      setIsLoading(false);
+    }
   };
 
   const handleSkip = () => {
@@ -91,6 +108,7 @@ export default function CompleteProfile() {
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
+          {feedback && <p className="auth-feedback" role="alert">{feedback}</p>}
           <div className="form-group">
             <label htmlFor="school">School</label>
             <div className="input-wrapper">

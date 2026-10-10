@@ -4,6 +4,11 @@ import AuthPage from './AuthPage';
 import { useAppStore } from '../store/useAppStore';
 import ProtectedRoute from '../components/ProtectedRoute';
 
+jest.mock('../lib/supabaseClient', () => ({
+  supabase: null,
+  isSupabaseConfigured: false,
+}));
+
 function CurrentPath() {
   const location = useLocation();
   return <output aria-label="Current path">{location.pathname}</output>;
@@ -33,7 +38,23 @@ test('uses the footer links to move between login and signup without top switch 
   expect(screen.getByLabelText(/current path/i)).toHaveTextContent('/login');
 });
 
-test('creates a frontend account and continues to profile completion', () => {
+test('password recovery and social sign-in controls provide feedback when auth is not configured', () => {
+  render(
+    <MemoryRouter initialEntries={['/login']}>
+      <Routes>
+        <Route path="/login" element={<AuthPage />} />
+      </Routes>
+    </MemoryRouter>
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: /forgot password/i }));
+  expect(screen.getByRole('alert')).toHaveTextContent(/enter your email address/i);
+
+  fireEvent.click(screen.getByRole('button', { name: /google/i }));
+  expect(screen.getByRole('alert')).toHaveTextContent(/social sign-in is unavailable/i);
+});
+
+test('does not submit account creation when Clerk is not configured', () => {
   useAppStore.getState().logout();
 
   render(
@@ -47,21 +68,12 @@ test('creates a frontend account and continues to profile completion', () => {
 
   fireEvent.change(screen.getByLabelText(/full name/i), { target: { value: '  Taylor Banda  ' } });
   fireEvent.change(screen.getByLabelText(/email address/i), { target: { value: 'TAYLOR@example.com' } });
-  fireEvent.change(screen.getByLabelText(/^i am a$/i), { target: { value: 'teacher' } });
   fireEvent.change(screen.getByLabelText(/^password$/i), { target: { value: 'StrongPass1!' } });
   fireEvent.change(screen.getByLabelText(/confirm password/i), { target: { value: 'StrongPass1!' } });
-  fireEvent.click(screen.getByRole('checkbox'));
   fireEvent.click(screen.getByRole('button', { name: /create account/i }));
 
-  expect(screen.getByRole('heading', { name: /complete your profile/i })).toBeInTheDocument();
-  expect(useAppStore.getState()).toMatchObject({
-    isAuthenticated: true,
-    user: {
-      name: 'Taylor Banda',
-      email: 'taylor@example.com',
-      role: 'Teacher',
-    },
-  });
+  expect(screen.getByRole('alert')).toHaveTextContent(/not configured yet/i);
+  expect(useAppStore.getState().isAuthenticated).toBe(false);
 
   useAppStore.getState().logout();
 });

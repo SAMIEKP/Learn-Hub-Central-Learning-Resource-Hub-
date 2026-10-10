@@ -2,15 +2,17 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { IconMail, IconLock, IconEye, IconEyeOff, IconArrowRight, IconBrandGoogle, IconBrandFacebook } from '@tabler/icons-react';
 import { useAppStore } from '../store/useAppStore';
-import { supabase } from '../lib/supabaseClient';
+import { useLearnHubAuth } from '../auth/ClerkAuthProvider';
 import logo from '../logo.svg';
 import './Auth.css';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { showAction, login } = useAppStore();
+  const showAction = useAppStore((state) => state.showAction);
+  const { isConfigured, signIn } = useLearnHubAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [feedback, setFeedback] = useState('');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -18,53 +20,90 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFeedback('');
     setIsLoading(true);
 
-    if (supabase) {
-      try {
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email: formData.email.trim().toLowerCase(),
-          password: formData.password,
-        });
-        if (error || !data?.user) {
-          showAction(error?.message || 'Unable to sign in. Please check your details.');
-          return;
-        }
-        const metadata = data.user.user_metadata || {};
-        const name = metadata.full_name || metadata.name || data.user.email?.split('@')[0] || 'LearnHub Student';
-        login({
-          id: data.user.id,
-          name,
-          email: data.user.email,
-          role: metadata.role === 'teacher' ? 'Teacher' : 'Student',
-          school: metadata.school || 'Not specified',
-          form: metadata.form || '',
-        });
-        showAction('Login successful! Welcome back.');
-        navigate('/');
-      } catch {
-        showAction('Unable to sign in right now. Please try again.');
-      } finally {
-        setIsLoading(false);
-      }
+    if (!isConfigured || !signIn) {
+      setFeedback('Sign-in is not configured yet. Add the Clerk publishable key to the app environment.');
+      setIsLoading(false);
       return;
     }
 
-    setTimeout(() => {
-      const userData = {
-        id: 'user-1',
-        name: 'SAMUEL KP',
-        email: formData.email,
-        role: 'Student',
-        school: 'Blantyre Secondary School',
-        form: 'Form 3',
-      };
-
-      login(userData);
+    try {
+      const result = await signIn.password({
+        identifier: formData.email.trim().toLowerCase(),
+        password: formData.password,
+      });
+      if (result.error) {
+        setFeedback('Unable to sign in. Please check your email and password, then try again.');
+        return;
+      }
+      if (signIn.status !== 'complete') {
+        setFeedback('Your account requires an additional verification step. Complete it with your school account administrator.');
+        return;
+      }
+      await signIn.finalize();
       showAction('Login successful! Welcome back.');
-      setIsLoading(false);
       navigate('/');
-    }, 1000);
+    } catch {
+      setFeedback('Unable to sign in right now. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    setFeedback('');
+    const email = formData.email.trim().toLowerCase();
+    if (!email) {
+      setFeedback('Enter your email address first, then choose Forgot password.');
+      return;
+    }
+    if (!isConfigured || !signIn) {
+      setFeedback('Password recovery is unavailable until Clerk is configured.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await signIn.create({ identifier: email });
+      if (error) {
+        setFeedback('Unable to send a recovery email. Check the address and try again.');
+        return;
+      }
+      const resetResult = await signIn.resetPasswordEmailCode.sendCode();
+      if (resetResult.error) {
+        setFeedback('Unable to send a recovery email. Check the address and try again.');
+        return;
+      }
+      navigate(`/reset-password?email=${encodeURIComponent(email)}`);
+    } catch {
+      setFeedback('Unable to send a recovery email right now. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSocialSignIn = async (provider) => {
+    setFeedback('');
+    if (!isConfigured || !signIn) {
+      setFeedback('Social sign-in is unavailable until Clerk is configured.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await signIn.sso({
+        strategy: `oauth_${provider}`,
+        redirectUrl: `${window.location.origin}/`,
+        redirectCallbackUrl: `${window.location.origin}/complete-profile`,
+      });
+      if (error) setFeedback('Unable to start social sign-in. Please try again.');
+    } catch {
+      setFeedback('Unable to start social sign-in right now. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -133,9 +172,10 @@ export default function Login() {
               <input type="checkbox" name="remember" />
               <span>Remember me</span>
             </label>
-            <a href="#forgot-password" className="link">Forgot password?</a>
+            <button type="button" className="link auth-text-button" onClick={handlePasswordReset} disabled={isLoading}>Forgot password?</button>
           </div>
 
+          {feedback && <p className="auth-feedback" role="alert">{feedback}</p>}
           <button type="submit" className="auth-button primary" disabled={isLoading}>
             {isLoading ? 'Signing in...' : 'Sign in'}
             {!isLoading && <IconArrowRight size={18} />}
@@ -147,11 +187,11 @@ export default function Login() {
         </div>
 
         <div className="social-buttons">
-          <button type="button" className="social-button google">
+          <button type="button" className="social-button google" onClick={() => handleSocialSignIn('google')} disabled={isLoading}>
             <IconBrandGoogle size={18} />
             <span>Google</span>
           </button>
-          <button type="button" className="social-button facebook">
+          <button type="button" className="social-button facebook" onClick={() => handleSocialSignIn('facebook')} disabled={isLoading}>
             <IconBrandFacebook size={18} />
             <span>Facebook</span>
           </button>

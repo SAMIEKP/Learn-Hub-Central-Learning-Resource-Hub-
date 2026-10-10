@@ -1,55 +1,55 @@
-import { useCallback, useEffect, useState } from 'react';
-import { isSupabaseConfigured, supabase } from '../lib/supabaseClient';
+import { useEffect, useMemo, useState } from 'react';
+import { useLearnHubAuth } from '../auth/ClerkAuthProvider';
+import { loadOrCreateProfile } from '../api/profiles';
 
 export function useAuth() {
-  const [session, setSession] = useState(null);
-  const [isLoading, setIsLoading] = useState(isSupabaseConfigured);
+  const auth = useLearnHubAuth();
+  const [profile, setProfile] = useState(null);
+  const [isProfileLoading, setIsProfileLoading] = useState(false);
+  const appUser = useMemo(() => auth.user ? {
+    id: auth.user.id,
+    name: profile?.full_name || auth.user.fullName || 'LearnHub Student',
+    email: auth.user.primaryEmailAddress?.emailAddress || '',
+    role: profile?.role || 'student',
+    school: profile?.school || 'Not specified',
+    form: profile?.form || '',
+    department: profile?.department || '',
+    phone: profile?.phone || '',
+  } : null, [auth.user, profile]);
 
   useEffect(() => {
-    if (!supabase) return undefined;
+    let isActive = true;
+    if (!auth.isLoaded || !auth.isSignedIn || !auth.user) {
+      setProfile(null);
+      setIsProfileLoading(false);
+      return undefined;
+    }
 
-    let isMounted = true;
-
-    supabase.auth.getSession().then(({ data, error }) => {
-      if (!isMounted) return;
-      if (error) console.error('Unable to restore the Supabase session:', error);
-      setSession(data?.session || null);
-      setIsLoading(false);
-    });
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (isMounted) setSession(nextSession);
-    });
+    setIsProfileLoading(true);
+    loadOrCreateProfile(auth.user)
+      .then((value) => {
+        if (isActive) setProfile(value);
+      })
+      .catch((error) => {
+        console.error('Unable to load the LearnHub profile:', error);
+        if (isActive) setProfile(null);
+      })
+      .finally(() => {
+        if (isActive) setIsProfileLoading(false);
+      });
 
     return () => {
-      isMounted = false;
-      authListener.subscription.unsubscribe();
+      isActive = false;
     };
-  }, []);
-
-  const signIn = useCallback(async ({ email, password }) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    return supabase.auth.signInWithPassword({ email, password });
-  }, []);
-
-  const signUp = useCallback(async ({ email, password, options }) => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    return supabase.auth.signUp({ email, password, options });
-  }, []);
-
-  const signOut = useCallback(async () => {
-    if (!supabase) throw new Error('Supabase is not configured.');
-    return supabase.auth.signOut();
-  }, []);
+  }, [auth.isLoaded, auth.isSignedIn, auth.user]);
 
   return {
-    session,
-    user: session?.user || null,
-    isLoading,
-    isConfigured: isSupabaseConfigured,
-    signIn,
-    signUp,
-    signOut,
+    ...auth,
+    profile,
+    appUser,
+    isLoading: !auth.isLoaded || isProfileLoading,
+    isConfigured: auth.isConfigured,
+    session: auth.isSignedIn && auth.user ? { user: auth.user } : null,
   };
 }
 

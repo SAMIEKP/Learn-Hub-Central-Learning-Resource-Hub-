@@ -26,6 +26,9 @@ export const useAppStore = create((set) => ({
     user: userData,
     isAuthenticated: true,
   }),
+  updateUser: (userData) => set((state) => ({
+    user: { ...state.user, ...userData },
+  })),
 
   // UI actions
   showAction: (message, duration = 2600) => {

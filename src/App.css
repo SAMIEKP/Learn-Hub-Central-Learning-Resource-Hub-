@@ -37,6 +37,25 @@ button, a {
   -webkit-tap-highlight-color: transparent;
 }
 
+.app-action-toast {
+  position: fixed;
+  z-index: 10020;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 12px 18px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  color: #fff;
+  background: #183c35;
+  box-shadow: 0 12px 32px rgba(12, 28, 24, 0.24);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
 .app-shell {
   display: flex;
   height: 100vh;
@@ -4487,6 +4506,12 @@ button, a {
 .profile-field input:focus, .profile-field select:focus, .profile-field textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(22, 75, 66, 0.1); }
 .profile-editor-note { margin: 12px 0 22px; color: var(--muted); font-size: 10px; line-height: 1.45; }
 .profile-editor-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.settings-request-dialog > p { color: var(--muted); font-size: 12px; line-height: 1.55; }
+.settings-request-dialog .profile-field { margin: 16px 0; }
+.mfa-qr-code { display: block; width: min(200px, 100%); height: auto; margin: 16px auto; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
+.mfa-secret { overflow-wrap: anywhere; }
+.mfa-secret code { display: inline-block; padding: 4px 6px; border-radius: 4px; color: var(--ink); background: #f4f4ef; }
+.empty-followed { margin: 0; color: var(--muted); font-size: 11px; }
 
 @media (max-width: 650px) {
   .profile-hero { padding: 24px 20px; }
@@ -5922,6 +5947,16 @@ button, a {
 /* Match the desktop compact header on phones: search moves into the top-left
    row beside the account actions instead of keeping the expanded layout. */
 @media (max-width: 650px) {
+  .discovery-top:not(.is-compact) {
+    height: auto;
+    min-height: 220px;
+  }
+
+  .discovery-top:not(.is-compact) .topbar {
+    height: auto;
+    min-height: 220px;
+  }
+
   .discovery-top.is-compact {
     height: 120px;
   }

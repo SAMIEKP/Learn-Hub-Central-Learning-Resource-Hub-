@@ -2,22 +2,25 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { IconMail, IconLock, IconUser, IconEye, IconEyeOff, IconArrowRight, IconBrandGoogle, IconBrandFacebook } from '@tabler/icons-react';
 import { useAppStore } from '../store/useAppStore';
-import { supabase } from '../lib/supabaseClient';
+import { useLearnHubAuth } from '../auth/ClerkAuthProvider';
 import logo from '../logo.svg';
 import './Auth.css';
 
 export default function Register() {
   const navigate = useNavigate();
-  const { showAction, register: registerUser } = useAppStore();
+  const showAction = useAppStore((state) => state.showAction);
+  const { isConfigured, signUp } = useLearnHubAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [feedback, setFeedback] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [isVerificationPending, setIsVerificationPending] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'student',
   });
 
   const passwordChecks = useMemo(() => ({
@@ -33,62 +36,97 @@ export default function Register() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setFeedback('');
 
     if (!passwordIsValid) {
-      showAction('Choose a stronger password using all the requirements below.');
+      setFeedback('Choose a stronger password using all the requirements below.');
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      showAction('Passwords do not match');
+      setFeedback('Passwords do not match.');
       return;
     }
 
-    const normalizedEmail = formData.email.trim().toLowerCase();
-    const userData = {
-      id: `user-${Date.now()}`,
-      name: formData.fullName.trim(),
-      email: normalizedEmail,
-      role: formData.role.charAt(0).toUpperCase() + formData.role.slice(1),
-      school: 'Not specified',
-    };
+    if (!isConfigured || !signUp) {
+      setFeedback('Account creation is not configured yet. Add the Clerk publishable key to the app environment.');
+      return;
+    }
 
-    if (supabase) {
-      setIsLoading(true);
-      try {
-        const { data, error } = await supabase.auth.signUp({
-          email: normalizedEmail,
-          password: formData.password,
-          options: {
-            data: {
-              full_name: userData.name,
-              role: formData.role,
-            },
-          },
-        });
-        if (error || !data?.user) {
-          showAction(error?.message || 'Unable to create your account. Please try again.');
-          return;
-        }
-        if (!data.session) {
-          showAction('Check your email to confirm your account, then sign in.');
-          navigate('/login');
-          return;
-        }
-        registerUser({ ...userData, id: data.user.id });
+    setIsLoading(true);
+    try {
+      const names = formData.fullName.trim().split(/\s+/);
+      const { error } = await signUp.password({
+        emailAddress: formData.email.trim().toLowerCase(),
+        password: formData.password,
+        firstName: names[0],
+        lastName: names.slice(1).join(' '),
+      });
+      if (error) {
+        setFeedback('Unable to create your account. Please check your details and try again.');
+        return;
+      }
+      if (signUp.status === 'complete') {
+        await signUp.finalize();
         showAction('Account created successfully!');
         navigate('/complete-profile');
-      } catch {
-        showAction('Unable to create your account right now. Please try again.');
-      } finally {
-        setIsLoading(false);
+        return;
       }
+      const codeResult = await signUp.verifications.sendEmailCode();
+      if (codeResult.error) {
+        setFeedback('Your account was started, but an email verification code could not be sent. Try again.');
+        return;
+      }
+      setIsVerificationPending(true);
+      setFeedback('Enter the verification code sent to your email address.');
+    } catch {
+      setFeedback('Unable to create your account right now. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleVerifyEmail = async (event) => {
+    event.preventDefault();
+    if (!signUp || !verificationCode.trim()) return;
+    setIsLoading(true);
+    setFeedback('');
+    try {
+      const { error } = await signUp.verifications.verifyEmailCode({ code: verificationCode.trim() });
+      if (error || signUp.status !== 'complete') {
+        setFeedback('That verification code could not be confirmed. Check it and try again.');
+        return;
+      }
+      await signUp.finalize();
+      showAction('Account created successfully!');
+      navigate('/complete-profile');
+    } catch {
+      setFeedback('Unable to verify your email right now. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSocialSignIn = async (provider) => {
+    setFeedback('');
+    if (!isConfigured || !signUp) {
+      setFeedback('Social sign-in is unavailable until Clerk is configured.');
       return;
     }
 
-    registerUser(userData);
-    showAction('Account created successfully!');
-    navigate('/complete-profile');
+    setIsLoading(true);
+    try {
+      const { error } = await signUp.sso({
+        strategy: `oauth_${provider}`,
+        redirectUrl: `${window.location.origin}/complete-profile`,
+        redirectCallbackUrl: `${window.location.origin}/complete-profile`,
+      });
+      if (error) setFeedback('Unable to start social sign-in. Please try again.');
+    } catch {
+      setFeedback('Unable to start social sign-in right now. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -109,7 +147,22 @@ export default function Register() {
           <p>Join Learn Hub to discover educational resources</p>
         </div>
 
-        <form className="auth-form auth-register-form" onSubmit={handleSubmit}>
+        {isVerificationPending ? (
+          <form className="auth-form auth-register-form" onSubmit={handleVerifyEmail}>
+            <div className="form-group">
+              <label htmlFor="verification-code">Email verification code</label>
+              <div className="input-wrapper">
+                <IconLock size={18} className="input-icon" />
+                <input id="verification-code" value={verificationCode} onChange={(event) => setVerificationCode(event.target.value)} inputMode="numeric" autoComplete="one-time-code" required />
+              </div>
+            </div>
+            {feedback && <p className="auth-feedback" role="alert">{feedback}</p>}
+            <button type="submit" className="auth-button primary" disabled={isLoading}>
+              {isLoading ? 'Verifying...' : 'Verify email'}
+              {!isLoading && <IconArrowRight size={18} />}
+            </button>
+          </form>
+        ) : <form className="auth-form auth-register-form" onSubmit={handleSubmit}>
           <div className="form-group auth-register-name">
             <label htmlFor="fullName">Full name</label>
             <div className="input-wrapper">
@@ -142,14 +195,6 @@ export default function Register() {
                 autoComplete="email"
               />
             </div>
-          </div>
-
-          <div className="form-group auth-register-role">
-            <label htmlFor="role">I am a</label>
-            <select id="role" name="role" className="role-select" value={formData.role} onChange={handleChange}>
-              <option value="student">Student</option>
-              <option value="teacher">Teacher</option>
-            </select>
           </div>
 
           <div className="password-row auth-register-passwords">
@@ -194,16 +239,17 @@ export default function Register() {
             </label>
           </div>
 
+          {feedback && <p className="auth-feedback" role="alert">{feedback}</p>}
           <button type="submit" className="auth-button primary auth-register-submit" disabled={isLoading}>
             {isLoading ? 'Creating account...' : 'Create account'}
             {!isLoading && <IconArrowRight size={18} />}
           </button>
-        </form>
+        </form>}
 
         <div className="auth-divider"><span>or sign up with</span></div>
         <div className="social-buttons">
-          <button type="button" className="social-button google"><IconBrandGoogle size={18} /><span>Google</span></button>
-          <button type="button" className="social-button facebook"><IconBrandFacebook size={18} /><span>Facebook</span></button>
+          <button type="button" className="social-button google" onClick={() => handleSocialSignIn('google')} disabled={isLoading}><IconBrandGoogle size={18} /><span>Google</span></button>
+          <button type="button" className="social-button facebook" onClick={() => handleSocialSignIn('facebook')} disabled={isLoading}><IconBrandFacebook size={18} /><span>Facebook</span></button>
         </div>
 
         <div className="auth-footer">
