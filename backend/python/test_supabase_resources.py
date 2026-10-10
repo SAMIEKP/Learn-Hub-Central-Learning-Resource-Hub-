@@ -1,7 +1,6 @@
 import json
 import unittest
-from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 import jwt
@@ -29,15 +28,13 @@ class SupabaseAssistantResourceTests(unittest.TestCase):
             url="https://project.supabase.co",
             key="service-role-secret",
             anon_key="public-anon-key",
+            jwt_secret="test-supabase-jwt-secret",
         )
 
-    def test_clerk_access_token_is_validated_against_configured_issuer(self):
-        self.store.clerk_issuer = "https://learnhub.clerk.accounts.dev"
-        self.store.clerk_jwks = SimpleNamespace(
-            get_signing_key_from_jwt=Mock(return_value=SimpleNamespace(key="public-key"))
-        )
+    def test_supabase_template_token_is_validated_with_legacy_secret(self):
         with patch("supabase_resources.jwt.decode", return_value={
-            "iss": self.store.clerk_issuer,
+            "aud": "authenticated",
+            "role": "authenticated",
             "sub": "user_123",
         }) as decode:
             user = self.store.verify_access_token("student-access-token")
@@ -45,20 +42,25 @@ class SupabaseAssistantResourceTests(unittest.TestCase):
         self.assertEqual(user, {"id": "user_123"})
         decode.assert_called_once_with(
             "student-access-token",
-            "public-key",
-            algorithms=["RS256"],
-            issuer=self.store.clerk_issuer,
-            options={"require": ["sub", "iss", "exp", "iat"]},
+            "test-supabase-jwt-secret",
+            algorithms=["HS256"],
+            audience="authenticated",
+            options={"require": ["sub", "aud", "exp", "iat", "role"]},
         )
 
-    def test_invalid_clerk_token_is_rejected(self):
-        self.store.clerk_issuer = "https://learnhub.clerk.accounts.dev"
-        self.store.clerk_jwks = SimpleNamespace(
-            get_signing_key_from_jwt=Mock(return_value=SimpleNamespace(key="public-key"))
-        )
+    def test_invalid_supabase_template_token_is_rejected(self):
         with patch("supabase_resources.jwt.decode", side_effect=jwt.InvalidTokenError):
             with self.assertRaises(PermissionError):
                 self.store.verify_access_token("invalid-token")
+
+    def test_supabase_token_with_non_authenticated_role_is_rejected(self):
+        with patch("supabase_resources.jwt.decode", return_value={
+            "aud": "authenticated",
+            "role": "service_role",
+            "sub": "user_123",
+        }):
+            with self.assertRaises(PermissionError):
+                self.store.verify_access_token("invalid-role-token")
 
     def test_assistant_resource_query_uses_user_token_and_verified_filter(self):
         captured = {}
@@ -82,7 +84,7 @@ class SupabaseAssistantResourceTests(unittest.TestCase):
         self.assertEqual(query["extracted_text"], ["not.is.null"])
         self.assertEqual(
             captured["request"].get_header("Authorization"),
-            "Bearer student-access-token",
+            "Bearer " + "student-access-token",
         )
         self.assertEqual(captured["request"].get_header("Apikey"), "public-anon-key")
 

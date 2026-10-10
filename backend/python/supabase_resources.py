@@ -20,47 +20,40 @@ RESOURCE_COLUMNS = (
 
 
 class SupabaseResourceStore:
-    """Fetch verified resources and authenticate Clerk sessions."""
+    """Fetch verified resources and authenticate Supabase JWTs from Clerk."""
 
     def __init__(
         self,
         url: str | None = None,
         key: str | None = None,
         anon_key: str | None = None,
+        jwt_secret: str | None = None,
         page_size: int = 1000,
     ):
         self.url = (url or os.environ.get("SUPABASE_URL", "")).rstrip("/")
         self.key = key or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
         self.anon_key = anon_key or os.environ.get("SUPABASE_ANON_KEY", "")
-        self.clerk_issuer = os.environ.get("CLERK_ISSUER", "").rstrip("/")
-        jwks_url = os.environ.get(
-            "CLERK_JWKS_URL",
-            f"{self.clerk_issuer}/.well-known/jwks.json" if self.clerk_issuer else "",
-        )
-        self.clerk_jwks = jwt.PyJWKClient(jwks_url) if jwks_url else None
+        self.jwt_secret = jwt_secret or os.environ.get("SUPABASE_JWT_SECRET", "")
         self.page_size = page_size
 
     def verify_access_token(self, access_token: str) -> dict[str, Any]:
-        """Validate a Clerk session token against the configured issuer and JWKS."""
-        if not self.clerk_issuer or not self.clerk_jwks:
-            raise RuntimeError("CLERK_ISSUER is required to validate assistant sessions")
+        """Validate a Clerk Supabase-template token with the Supabase legacy secret."""
+        if not self.jwt_secret:
+            raise RuntimeError("SUPABASE_JWT_SECRET is required to validate assistant sessions")
         try:
-            signing_key = self.clerk_jwks.get_signing_key_from_jwt(access_token)
             claims = jwt.decode(
                 access_token,
-                signing_key.key,
-                algorithms=["RS256"],
-                issuer=self.clerk_issuer,
-                options={"require": ["sub", "iss", "exp", "iat"]},
+                self.jwt_secret,
+                algorithms=["HS256"],
+                audience="authenticated",
+                options={"require": ["sub", "aud", "exp", "iat", "role"]},
             )
         except jwt.InvalidTokenError as error:
-            raise PermissionError("Invalid Clerk session token") from error
-        except jwt.PyJWKClientError as error:
-            raise RuntimeError("Unable to validate the Clerk session") from error
+            raise PermissionError("Invalid Supabase session token") from error
 
         subject = claims.get("sub")
-        if not isinstance(subject, str) or not subject:
-            raise PermissionError("Clerk token has no user subject")
+        if not isinstance(subject, str) or not subject or claims.get("role") != "authenticated":
+            raise PermissionError("Supabase token has invalid user claims")
         return {"id": subject}
 
     def list_accessible_resources(self, access_token: str) -> list[dict[str, Any]]:

@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useMemo } from 'react';
 import { ClerkProvider, useAuth, useSignIn, useSignUp, useUser } from '@clerk/react';
-import { setClerkTokenGetter } from '../lib/supabaseClient';
+import { setClerkSessionTokenGetter, setClerkTokenGetter } from '../lib/supabaseClient';
 
 const clerkPublishableKey = process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
 
@@ -22,8 +22,12 @@ function ClerkAuthBridge({ children }) {
   const { user } = useUser();
 
   useEffect(() => {
-    setClerkTokenGetter(isSignedIn ? () => getToken() : null);
-    return () => setClerkTokenGetter(null);
+    setClerkTokenGetter(isSignedIn ? () => getToken({ template: 'supabase' }) : null);
+    setClerkSessionTokenGetter(isSignedIn ? () => getToken() : null);
+    return () => {
+      setClerkTokenGetter(null);
+      setClerkSessionTokenGetter(null);
+    };
   }, [getToken, isSignedIn]);
 
   const value = useMemo(() => ({

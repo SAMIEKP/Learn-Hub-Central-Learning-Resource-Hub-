@@ -36,14 +36,16 @@ Python service must also set `CLIENT_ORIGIN` to the deployed React site's
 origin. The deployed React app must set its existing
 `REACT_APP_SEARCH_API_URL` to this service's base URL.
 
-Assistant requests require a Clerk session token. The service validates the
-token signature against Clerk's JWKS and checks its issuer before using that
-same token to query verified resources through Supabase RLS. Configure
-`CLERK_ISSUER` to the exact issuer URL from a Clerk session token (without a
-trailing slash); `CLERK_JWKS_URL` is optional and defaults to the issuer's
-`/.well-known/jwks.json`. The Supabase project must trust that Clerk instance
-as a third-party auth provider. The service-role key is not used for assistant
-retrieval.
+Assistant requests use the Clerk JWT template named `supabase`. The Python
+service verifies the template token's HS256 signature, audience, expiry, and
+authenticated role with `SUPABASE_JWT_SECRET`, then uses that same caller token
+to query verified resources through Supabase RLS. Configure
+`SUPABASE_JWT_SECRET` on the Python service with the Supabase legacy JWT secret
+used to sign the Clerk template. Keep it server-side only; never expose it in
+the React app or commit its value. Configure the Clerk template claims to
+include the authenticated audience, Clerk user ID as `sub`, and
+`role: authenticated`, and ensure the token lifetime includes `iat` and `exp`.
+The service-role key is not used for assistant retrieval.
 
 Configure frontend `REACT_APP_CLERK_PUBLISHABLE_KEY`,
 `REACT_APP_SUPABASE_URL`, and `REACT_APP_SUPABASE_PUBLISHABLE_KEY` (or

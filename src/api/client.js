@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getClerkAccessToken, supabase } from '../lib/supabaseClient';
+import { getClerkAccessToken, getClerkSupabaseToken, supabase } from '../lib/supabaseClient';
 
 const apiClient = axios.create({
   baseURL: process.env.REACT_APP_API_URL || '/api',
@@ -34,7 +34,7 @@ export const searchResources = async (query, page = 1, perPage = 20) => {
 
 export const askLearnHubAssistant = async (payload) => {
   if (!supabase) throw new Error('LearnHub Assistant data access is not configured.');
-  const accessToken = await getClerkAccessToken();
+  const accessToken = await getClerkSupabaseToken();
   if (!accessToken) throw new Error('Sign in to use the LearnHub Assistant.');
   const response = await searchClient.post('/assistant/chat', payload, {
     timeout: 30000,
