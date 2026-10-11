@@ -56,11 +56,17 @@ export default function Register() {
     setIsLoading(true);
     try {
       const names = formData.fullName.trim().split(/\s+/);
-      const { data, error } = await signUp.password({
-        emailAddress: formData.email.trim().toLowerCase(),
+      const { data, error } = await supabase.auth.signUp({
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
-        firstName: names[0],
-        lastName: names.slice(1).join(' '),
+        options: {
+          data: {
+            first_name: names[0],
+            last_name: names.slice(1).join(' '),
+            full_name: formData.fullName.trim(),
+          },
+          emailRedirectTo: `${window.location.origin}/complete-profile`,
+        },
       });
       if (error) {
         setFeedback('Unable to create your account. Please check your details and try again.');
