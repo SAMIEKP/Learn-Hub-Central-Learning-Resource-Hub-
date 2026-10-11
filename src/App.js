@@ -8,6 +8,7 @@ import CompleteProfile from './pages/CompleteProfile';
 import ResetPassword from './pages/ResetPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import LearnHubAssistant from './components/LearnHubAssistant';
+import ResourceSearch from './components/ResourceSearch';
 import {
   IconHome,
   IconVideo,
@@ -63,9 +64,8 @@ import FileDropzone from './components/FileDropzone';
 import { useAppStore } from './store/useAppStore';
 import { formatDate } from './utils/date';
 import { supabase } from './lib/supabaseClient';
-import { useLearnHubAuth } from './auth/ClerkAuthProvider';
+import { useLearnHubAuth } from './auth/SupabaseAuthProvider';
 import { updateProfile } from './api/profiles';
-import { UserProfile } from '@clerk/react';
 import {
   createSocialComment,
   createSocialPost,
@@ -1032,7 +1032,7 @@ function NotificationsPage({ onNavigate = () => {} }) {
 
 function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
   const navigate = useNavigate();
-  const { signOut, signIn } = useLearnHubAuth();
+  const { signOut } = useLearnHubAuth();
   const logout = useAppStore((state) => state.logout);
   const currentUser = useAppStore((state) => state.user);
   const showGlobalAction = useAppStore((state) => state.showAction);
@@ -1043,7 +1043,7 @@ function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
 
   const handleLogout = async () => {
     try {
-      await signOut({ redirectUrl: '/login' });
+      await signOut();
       logout();
       showGlobalAction('You have been logged out successfully.');
       navigate('/login');
@@ -1101,16 +1101,14 @@ function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
   };
 
   const handlePasswordChange = async () => {
-    if (!signIn || !profileDetails.email) {
-      onAction('Password recovery is unavailable until Clerk is configured.');
+    if (!profileDetails.email) {
+      onAction('Password recovery is unavailable. Please ensure your email is set.');
       return;
     }
     try {
-      const { error } = await signIn.create({ identifier: profileDetails.email });
+      const { error } = await supabase.auth.resetPasswordForEmail(profileDetails.email);
       if (error) throw error;
-      const result = await signIn.resetPasswordEmailCode.sendCode();
-      if (result.error) throw result.error;
-      navigate(`/reset-password?email=${encodeURIComponent(profileDetails.email)}`);
+      onAction('A password reset email has been sent. Check your inbox.');
     } catch {
       onAction('Unable to send a password recovery email right now. Please try again.');
     }
@@ -1140,7 +1138,7 @@ function SettingsPage({ onNavigate = () => {}, onAction = () => {} }) {
         {activeSection === 'recommendations' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Recommendation sources</h3><p>Choose what Learn Hub can use to personalize your shelves.</p></div></div><SettingToggle label="My department" /><SettingToggle label="My class / Form" /><SettingToggle label="My school" /><SettingToggle label="My reading history" /><SettingToggle label="My likes and saved items" /><SettingToggle label="Popular resources" /><div className="recommendation-note"><IconCompass size={17} /><span>Recommendations may include “Recommended because you selected Science” or “New from your school.”</span></div><button type="button" className="danger-link">Reset recommendation history</button></div>}
         {activeSection === 'privacy' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Profile visibility</h3><p>Control who can discover your public learning identity.</p></div></div><div className="visibility-options"><label><input type="radio" name="visibility" defaultChecked /> <span><strong>My school</strong><small>Recommended for students</small></span></label><label><input type="radio" name="visibility" /> <span><strong>All approved Learn Hub users</strong><small>Your public profile can be viewed by approved members</small></span></label><label><input type="radio" name="visibility" /> <span><strong>Private</strong><small>Only you can see your profile activity</small></span></label></div><div className="subsection-heading">Activity privacy</div><SettingToggle label="Questions and answers" /><SettingToggle label="Liked resources" defaultChecked={false} /><SettingToggle label="Recently read and completed resources" defaultChecked={false} /><div className="privacy-callout"><IconLock size={16} /><span>Private notes, highlights, email, phone number, and reading history are private by default.</span></div></div>}
         {activeSection === 'appearance' && <div className="settings-card settings-card-stack"><div className="card-title-row"><div><h3>Appearance and accessibility</h3><p>Comfortable reading for every study session.</p></div></div><div className="theme-selector" role="group" aria-label="Theme"><span className="theme-selector-label">Theme</span><div className="theme-options">{[['light', 'Light'], ['dark', 'Dark'], ['system', 'System']].map(([theme, label]) => <button key={theme} type="button" className={`theme-choice ${selectedTheme === theme ? 'active' : ''}`} aria-pressed={selectedTheme === theme} onClick={() => setSelectedTheme(theme)}><span className={`theme-swatch ${theme}`} /><span>{label}</span>{selectedTheme === theme && <IconCheck size={15} />}</button>)}</div></div><SettingToggle label="Larger text" /><SettingToggle label="High contrast colors" /><SettingToggle label="Reduced motion" defaultChecked={false} /><SettingToggle label="Dyslexia-friendly font" defaultChecked={false} /><SettingToggle label="Prefer captions" /><SettingToggle label="Prefer transcripts" /></div>}
-        {activeSection === 'security' && <div className="settings-card settings-card-stack"><div className="security-status-row"><span className="security-icon"><IconMail size={15} /></span><div><strong>Account email</strong><small>{profileDetails.email || 'Not available'}</small></div><span>Clerk</span></div><p className="security-summary">Manage passwords, authenticator factors, and active sessions securely with Clerk.</p><UserProfile routing="hash" /></div>}
+        {activeSection === 'security' && <div className="settings-card settings-card-stack"><div className="security-status-row"><span className="security-icon"><IconMail size={15} /></span><div><strong>Account email</strong><small>{profileDetails.email || 'Not available'}</small></div><span>Supabase</span></div><p className="security-summary">Your account is secured with Supabase authentication. You can manage your password and security settings in your Supabase dashboard.</p></div>}
         {activeSection === 'help' && <div className="settings-card settings-card-stack"><div className="help-row"><IconQuestionMark size={19} /><div><strong>Help center</strong><span>Answers about learning, publishing, and downloads</span></div><IconChevronRight size={16} /></div><div className="help-row"><IconMessageCircle2 size={19} /><div><strong>Report a technical problem</strong><span>Tell us what went wrong</span></div><IconChevronRight size={16} /></div><div className="help-row"><IconMail size={19} /><div><strong>Contact platform support</strong><span>support@learnhub.mw</span></div><IconChevronRight size={16} /></div><div className="link-row"><span>Terms of use</span><span>Privacy policy</span><span>Community guidelines</span></div></div>}
         {activeSection === 'about' && <div className="settings-card about-card"><div className="about-mark"><img src={logo} alt="" /></div><h3>Learn Hub</h3><p>A digital educational library for secondary schools in Malawi.</p><span className="version-label">Version 1.0.0 · Build 2026.09.20</span><div className="link-row"><span>Terms of use</span><span>Privacy policy</span><span>Licenses</span></div><button type="button" className="outline-button">Check for updates</button></div>}
       </section>
@@ -2540,32 +2538,15 @@ function AppContent() {
               </div>
             </div>
             <div className="header-search-row">
-              <form className="book-search" role="search" onSubmit={(event) => event.preventDefault()}>
-                <label htmlFor="category" className="visually-hidden">Choose a category</label>
-                <select id="category" defaultValue="all">
-                  <option value="all">All Categories</option>
-                  <option value="sciences">Sciences &amp; STEM</option>
-                  <option value="math">Mathematics</option>
-                  <option value="languages">Languages &amp; Literature</option>
-                  <option value="social">Social Studies</option>
-                  <option value="business">Business &amp; Commerce</option>
-                </select>
-                <span className="search-divider" aria-hidden="true" />
-                <label htmlFor="book-search-input" className="visually-hidden">Search books</label>
-                <input
-                  id="book-search-input"
-                  type="search"
-                  placeholder="Find books, past papers, notes..."
-                  onFocus={(event) => {
-                    const page = event.currentTarget.closest('.discovery-page');
-                    const scrollTop = page?.scrollTop ?? 0;
-                    window.setTimeout(() => page?.scrollTo({ top: scrollTop, behavior: 'auto' }), 0);
-                  }}
-                />
-                <button type="submit" className="search-submit-btn" aria-label="Search" title="Search">
-                  {isHeaderShrunk ? <IconSearch size={16} stroke={2} /> : 'Search'}
-                </button>
-              </form>
+              <ResourceSearch
+                compact={isHeaderShrunk}
+                onOpenResource={openAssistantResource}
+                onInputFocus={(event) => {
+                  const page = event.currentTarget.closest('.discovery-page');
+                  const scrollTop = page?.scrollTop ?? 0;
+                  window.setTimeout(() => page?.scrollTo({ top: scrollTop, behavior: 'auto' }), 0);
+                }}
+              />
               <span className="search-baseline" aria-hidden="true" />
             </div>
           </div>

@@ -1,29 +1,35 @@
 # LearnHub Python search algorithms
 
-Install the Python dependency and run the tests from this directory:
+Install the Python dependencies and run the tests from this directory:
 
 ```bash
 python3 -m pip install -r requirements.txt
 python3 -m unittest -v
 ```
 
-Start the search microservice with:
+Start the search and assistant API on port `5001` (port `5000` is commonly
+used by macOS services). For local development, fill in the backend values in
+`backend/.env`, then load them and start the service from this directory:
 
 ```bash
+set -a
+. ../.env
+set +a
 python3 app.py
 ```
+
+For deployment, set the same variables in the backend hosting environment.
 
 The service exposes `GET /health` and `GET /search?q=biology`. It loads only
 verified resources from Supabase using the server-only
-`SUPABASE_SERVICE_ROLE_KEY`, ranks them, and paginates the response. Set
-`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` before starting the service:
+`SUPABASE_SERVICE_ROLE_KEY` for the public search endpoint, ranks them, and
+paginates the response. Search responses contain public display metadata only;
+indexed text and storage paths are not returned to the browser.
 
-```bash
-export SUPABASE_URL=https://your-project-ref.supabase.co
-export SUPABASE_SERVICE_ROLE_KEY=your-server-only-service-role-key
-export SUPABASE_ANON_KEY=your-supabase-anon-or-publishable-key
-python3 app.py
-```
+The React app uses `REACT_APP_SEARCH_API_URL=http://localhost:5001` locally.
+For deployment, configure it to the publicly reachable base URL of this
+service and set `CLIENT_ORIGIN` to the exact frontend origin. Both values are
+required for browser requests to reach the service across origins.
 
 The service also exposes `POST /assistant/chat` for the LearnHub Assistant.
 It retrieves relevant passages only from verified resources with extracted
@@ -36,29 +42,24 @@ Python service must also set `CLIENT_ORIGIN` to the deployed React site's
 origin. The deployed React app must set its existing
 `REACT_APP_SEARCH_API_URL` to this service's base URL.
 
-Assistant requests use the Clerk JWT template named `supabase`. The Python
-service verifies the template token's HS256 signature, audience, expiry, and
+Assistant requests use Supabase Auth JWT tokens. The Python
+service verifies the token's HS256 signature, audience, expiry, and
 authenticated role with `SUPABASE_JWT_SECRET`, then uses that same caller token
 to query verified resources through Supabase RLS. Configure
-`SUPABASE_JWT_SECRET` on the Python service with the Supabase legacy JWT secret
-used to sign the Clerk template. Keep it server-side only; never expose it in
-the React app or commit its value. Configure the Clerk template claims to
-include the authenticated audience, Clerk user ID as `sub`, and
-`role: authenticated`, and ensure the token lifetime includes `iat` and `exp`.
-The service-role key is not used for assistant retrieval.
+`SUPABASE_JWT_SECRET` on the Python service with the Supabase JWT secret
+(found in your Supabase project settings under API > JWT Secret). Keep it
+server-side only; never expose it in the React app or commit its value.
 
-Configure frontend `REACT_APP_CLERK_PUBLISHABLE_KEY`,
-`REACT_APP_SUPABASE_URL`, and `REACT_APP_SUPABASE_PUBLISHABLE_KEY` (or
-`REACT_APP_SUPABASE_ANON_KEY`). Keep all secret keys server-side. Assistant
+Configure frontend `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_PUBLISHABLE_KEY`
+(or `REACT_APP_SUPABASE_ANON_KEY`). Keep all secret keys server-side. Assistant
 conversation history is request-only and is not stored by LearnHub. A
 per-user, in-memory rate limit allows 10 requests per minute per Python
 process; use a shared gateway or distributed limiter when deploying multiple
 workers/replicas.
 
-Google and Facebook sign-in are configured in Clerk, not Supabase Auth. Enable
-the desired OAuth providers in the Clerk Dashboard and configure their callback
-URLs there. Clerk redirects back to the Learn Hub origin and
-`/complete-profile`.
+Google and Facebook sign-in are configured in Supabase Auth. Enable
+the desired OAuth providers in the Supabase Dashboard under Authentication > Providers.
+Configure their callback URLs to point to your Learn Hub origin.
 
 The request body accepts a `question`, optional `context` for the resource
 currently being viewed, and recent `history`. Context helps rank the viewed
@@ -70,7 +71,7 @@ calling Gemini.
 Search example:
 
 ```bash
-curl 'http://localhost:5000/search?q=biology&page=1&per_page=20'
+curl 'http://localhost:5001/search?q=biology&page=1&per_page=20'
 ```
 
 The response includes `query`, `page`, `per_page`, `total`, and ranked
@@ -80,9 +81,10 @@ resource content fingerprint, so repeated searches reuse the same index.
 The cache keeps the four most recent resource snapshots. Search also applies
 standard-library fuzzy token matching for common misspellings.
 
-The React client can call the service through `searchResources` in
-`src/api/client.js`. Set `REACT_APP_SEARCH_API_URL` when the Flask service is
-not running at `http://localhost:5000`.
+The React home-page resource search calls the service through `searchResources`
+in `src/api/client.js`. Results are limited to verified resources and open in
+the existing resource detail view. Set `REACT_APP_SEARCH_API_URL` when the
+Flask service is not running at `http://localhost:5001`.
 
 `rank_resources(resources, query)` uses scikit-learn's standard,
 smoothed `TfidfVectorizer` with unigram and bigram features. It returns

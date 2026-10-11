@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getClerkAccessToken, getClerkSupabaseToken, supabase } from '../lib/supabaseClient';
+import { getSupabaseSessionToken, supabase } from '../lib/supabaseClient';
 
 const apiClient = axios.create({
   baseURL: process.env.REACT_APP_API_URL || '/api',
@@ -8,12 +8,12 @@ const apiClient = axios.create({
 });
 
 const searchClient = axios.create({
-  baseURL: process.env.REACT_APP_SEARCH_API_URL || 'http://localhost:5000',
+  baseURL: process.env.REACT_APP_SEARCH_API_URL || 'http://localhost:5001',
   timeout: 10000,
 });
 
 apiClient.interceptors.request.use(async (config) => {
-  const token = await getClerkAccessToken();
+  const token = await getSupabaseSessionToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
   return config;
 });
@@ -34,7 +34,7 @@ export const searchResources = async (query, page = 1, perPage = 20) => {
 
 export const askLearnHubAssistant = async (payload) => {
   if (!supabase) throw new Error('LearnHub Assistant data access is not configured.');
-  const accessToken = await getClerkSupabaseToken();
+  const accessToken = await getSupabaseSessionToken();
   if (!accessToken) throw new Error('Sign in to use the LearnHub Assistant.');
   const response = await searchClient.post('/assistant/chat', payload, {
     timeout: 30000,

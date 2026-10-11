@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: learnhub-backend-node
+    env: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 4000
+      - key: CLIENT_ORIGIN
+        value: https://learnhubmw.netlify.app
+      - key: SUPABASE_URL
+        value: https://vplkktzgytphfxcdelor.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: NODE_ENV
+        value: production

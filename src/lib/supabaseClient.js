@@ -2,32 +2,24 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseKey = process.env.REACT_APP_SUPABASE_PUBLISHABLE_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY;
-let clerkSupabaseTokenGetter = null;
-let clerkSessionTokenGetter = null;
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseKey);
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseKey, {
-      accessToken: async () => clerkSupabaseTokenGetter?.() || null,
-      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: window.localStorage,
+      },
     })
   : null;
 
-export function setClerkTokenGetter(getter) {
-  clerkSupabaseTokenGetter = getter;
-}
-
-export function setClerkSessionTokenGetter(getter) {
-  clerkSessionTokenGetter = getter;
-}
-
-export async function getClerkAccessToken() {
-  return clerkSessionTokenGetter?.() || null;
-}
-
-export async function getClerkSupabaseToken() {
-  return clerkSupabaseTokenGetter?.() || null;
+export async function getSupabaseSessionToken() {
+  if (!supabase) return null;
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || null;
 }
 
 export function requireSupabase() {
@@ -36,9 +28,4 @@ export function requireSupabase() {
   }
 
   return supabase;
-}
-
-export async function clearSupabaseSession() {
-  clerkSupabaseTokenGetter = null;
-  clerkSessionTokenGetter = null;
 }

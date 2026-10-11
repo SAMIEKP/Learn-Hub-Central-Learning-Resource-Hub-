@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { IconMail, IconLock, IconEye, IconEyeOff, IconArrowRight, IconBrandGoogle, IconBrandFacebook } from '@tabler/icons-react';
 import { useAppStore } from '../store/useAppStore';
-import { useLearnHubAuth } from '../auth/ClerkAuthProvider';
+import { useLearnHubAuth } from '../auth/SupabaseAuthProvider';
+import { supabase } from '../lib/supabaseClient';
 import logo from '../logo.svg';
 import './Auth.css';
 
@@ -24,7 +25,7 @@ export default function Login() {
     setIsLoading(true);
 
     if (!isConfigured || !signIn) {
-      setFeedback('Sign-in is not configured yet. Add the Clerk publishable key to the app environment.');
+      setFeedback('Sign-in is not configured yet. Add the Supabase configuration to the app environment.');
       setIsLoading(false);
       return;
     }
@@ -38,11 +39,6 @@ export default function Login() {
         setFeedback('Unable to sign in. Please check your email and password, then try again.');
         return;
       }
-      if (signIn.status !== 'complete') {
-        setFeedback('Your account requires an additional verification step. Complete it with your school account administrator.');
-        return;
-      }
-      await signIn.finalize();
       showAction('Login successful! Welcome back.');
       navigate('/');
     } catch {
@@ -60,23 +56,18 @@ export default function Login() {
       return;
     }
     if (!isConfigured || !signIn) {
-      setFeedback('Password recovery is unavailable until Clerk is configured.');
+      setFeedback('Password recovery is unavailable until Supabase is configured.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const { error } = await signIn.create({ identifier: email });
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
       if (error) {
         setFeedback('Unable to send a recovery email. Check the address and try again.');
         return;
       }
-      const resetResult = await signIn.resetPasswordEmailCode.sendCode();
-      if (resetResult.error) {
-        setFeedback('Unable to send a recovery email. Check the address and try again.');
-        return;
-      }
-      navigate(`/reset-password?email=${encodeURIComponent(email)}`);
+      setFeedback('A password reset email has been sent. Check your inbox.');
     } catch {
       setFeedback('Unable to send a recovery email right now. Please try again.');
     } finally {
@@ -86,17 +77,18 @@ export default function Login() {
 
   const handleSocialSignIn = async (provider) => {
     setFeedback('');
-    if (!isConfigured || !signIn) {
-      setFeedback('Social sign-in is unavailable until Clerk is configured.');
+    if (!isConfigured) {
+      setFeedback('Social sign-in is unavailable until Supabase is configured.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const { error } = await signIn.sso({
-        strategy: `oauth_${provider}`,
-        redirectUrl: `${window.location.origin}/`,
-        redirectCallbackUrl: `${window.location.origin}/complete-profile`,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
       });
       if (error) setFeedback('Unable to start social sign-in. Please try again.');
     } catch {

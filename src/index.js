@@ -3,14 +3,14 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
-import { ClerkAuthProvider } from './auth/ClerkAuthProvider';
+import { SupabaseAuthProvider } from './auth/SupabaseAuthProvider';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <ClerkAuthProvider>
+    <SupabaseAuthProvider>
       <App />
-    </ClerkAuthProvider>
+    </SupabaseAuthProvider>
   </React.StrictMode>
 );
 

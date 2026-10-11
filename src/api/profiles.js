@@ -12,9 +12,7 @@ export async function loadOrCreateProfile(user) {
   if (error) throw error;
   if (data) return data;
 
-  const name = user.fullName || [user.firstName, user.lastName].filter(Boolean).join(' ')
-    || user.primaryEmailAddress?.emailAddress?.split('@')[0]
-    || 'LearnHub Student';
+  const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'LearnHub Student';
   const { data: created, error: createError } = await supabase
     .from('profiles')
     .insert({ id: user.id, full_name: name })

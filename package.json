@@ -7,10 +7,7 @@
     "npm": ">=10"
   },
   "dependencies": {
-    "@clerk/react": "^6.17.8",
     "@hookform/resolvers": "^3.10.0",
-    "@supabase/auth-ui-react": "0.4.7",
-    "@supabase/auth-ui-shared": "0.1.8",
     "@supabase/supabase-js": "2.117.2",
     "@tabler/icons-react": "^3.47.0",
     "@testing-library/dom": "^10.4.2",

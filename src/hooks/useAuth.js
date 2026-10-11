@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLearnHubAuth } from '../auth/ClerkAuthProvider';
+import { useLearnHubAuth } from '../auth/SupabaseAuthProvider';
 import { loadOrCreateProfile } from '../api/profiles';
 
 export function useAuth() {
@@ -8,8 +8,8 @@ export function useAuth() {
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const appUser = useMemo(() => auth.user ? {
     id: auth.user.id,
-    name: profile?.full_name || auth.user.fullName || 'LearnHub Student',
-    email: auth.user.primaryEmailAddress?.emailAddress || '',
+    name: profile?.full_name || auth.user.user_metadata?.full_name || auth.user.user_metadata?.name || auth.user.email?.split('@')[0] || 'LearnHub Student',
+    email: auth.user.email || '',
     role: profile?.role || 'student',
     school: profile?.school || 'Not specified',
     form: profile?.form || '',

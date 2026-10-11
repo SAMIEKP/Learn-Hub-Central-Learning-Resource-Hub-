@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: learnhub-backend-python
+    env: python
+    plan: free
+    rootDir: backend/python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python3 app.py
+    envVars:
+      - key: SEARCH_PORT
+        value: 5001
+      - key: CLIENT_ORIGIN
+        value: https://your-frontend-url.netlify.app
+      - key: SUPABASE_URL
+        value: https://vplkktzgytphfxcdelor.supabase.co
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash

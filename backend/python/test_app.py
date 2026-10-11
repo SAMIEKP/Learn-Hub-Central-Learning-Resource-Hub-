@@ -37,6 +37,23 @@ class SearchApiTests(unittest.TestCase):
         self.assertEqual(body["per_page"], 1)
         self.assertEqual(len(body["results"]), 1)
 
+    def test_search_does_not_return_private_resource_content_or_storage_paths(self):
+        self.resources = [{
+            "id": "approved-resource",
+            "title": "Biology",
+            "subject": "science",
+            "extracted_text": "Private indexed resource text",
+            "file_path": "private/bucket/resource.pdf",
+        }]
+        self.client = create_app(lambda: self.resources).test_client()
+
+        response = self.client.get("/search?q=biology")
+
+        result = response.get_json()["results"][0]
+        self.assertEqual(result["id"], "approved-resource")
+        self.assertNotIn("extracted_text", result)
+        self.assertNotIn("file_path", result)
+
     def test_search_validates_pagination(self):
         response = self.client.get("/search?q=biology&per_page=101")
 

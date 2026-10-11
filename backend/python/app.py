@@ -21,6 +21,17 @@ MAX_ASSISTANT_QUESTION_LENGTH = 1000
 MAX_HISTORY_TURNS = 6
 MAX_HISTORY_TEXT_LENGTH = 1000
 MAX_CONTEXT_FIELD_LENGTH = 200
+PUBLIC_SEARCH_FIELDS = (
+    "id",
+    "title",
+    "subject",
+    "form",
+    "topic",
+    "resource_type",
+    "examination_year",
+    "author",
+    "score",
+)
 
 
 class AssistantRateLimiter:
@@ -113,16 +124,20 @@ def create_app(
         elif not isinstance(resources, list) or not all(isinstance(resource, dict) for resource in resources):
             return jsonify({"error": "resources must be an array of objects"}), 400
 
-        results = rank_resources(resources, query)
-        total = len(results)
+        ranked_resources = rank_resources(resources, query)
+        total = len(ranked_resources)
         start = (page - 1) * per_page
         end = start + per_page
+        results = [
+            {field: resource[field] for field in PUBLIC_SEARCH_FIELDS if field in resource}
+            for resource in ranked_resources[start:end]
+        ]
         return jsonify({
             "query": query,
             "page": page,
             "per_page": per_page,
             "total": total,
-            "results": results[start:end],
+            "results": results,
         }), 200
 
     @app.post("/assistant/chat")
@@ -235,4 +250,4 @@ app = create_app()
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=int(os.environ.get("SEARCH_PORT", "5001")))

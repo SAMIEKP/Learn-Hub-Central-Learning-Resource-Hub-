@@ -20,7 +20,7 @@ RESOURCE_COLUMNS = (
 
 
 class SupabaseResourceStore:
-    """Fetch verified resources and authenticate Supabase JWTs from Clerk."""
+    """Fetch verified resources and authenticate Supabase JWTs."""
 
     def __init__(
         self,
@@ -37,7 +37,7 @@ class SupabaseResourceStore:
         self.page_size = page_size
 
     def verify_access_token(self, access_token: str) -> dict[str, Any]:
-        """Validate a Clerk Supabase-template token with the Supabase legacy secret."""
+        """Validate a Supabase JWT token with the Supabase JWT secret."""
         if not self.jwt_secret:
             raise RuntimeError("SUPABASE_JWT_SECRET is required to validate assistant sessions")
         try:

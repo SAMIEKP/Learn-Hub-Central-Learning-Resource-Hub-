@@ -2,7 +2,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { IconMail, IconLock, IconUser, IconEye, IconEyeOff, IconArrowRight, IconBrandGoogle, IconBrandFacebook } from '@tabler/icons-react';
 import { useAppStore } from '../store/useAppStore';
-import { useLearnHubAuth } from '../auth/ClerkAuthProvider';
+import { useLearnHubAuth } from '../auth/SupabaseAuthProvider';
+import { supabase } from '../lib/supabaseClient';
 import logo from '../logo.svg';
 import './Auth.css';
 
@@ -14,7 +15,6 @@ export default function Register() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
   const [isVerificationPending, setIsVerificationPending] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
@@ -49,14 +49,14 @@ export default function Register() {
     }
 
     if (!isConfigured || !signUp) {
-      setFeedback('Account creation is not configured yet. Add the Clerk publishable key to the app environment.');
+      setFeedback('Account creation is not configured yet. Add the Supabase configuration to the app environment.');
       return;
     }
 
     setIsLoading(true);
     try {
       const names = formData.fullName.trim().split(/\s+/);
-      const { error } = await signUp.password({
+      const { data, error } = await signUp.password({
         emailAddress: formData.email.trim().toLowerCase(),
         password: formData.password,
         firstName: names[0],
@@ -66,19 +66,13 @@ export default function Register() {
         setFeedback('Unable to create your account. Please check your details and try again.');
         return;
       }
-      if (signUp.status === 'complete') {
-        await signUp.finalize();
+      if (data.session) {
         showAction('Account created successfully!');
         navigate('/complete-profile');
         return;
       }
-      const codeResult = await signUp.verifications.sendEmailCode();
-      if (codeResult.error) {
-        setFeedback('Your account was started, but an email verification code could not be sent. Try again.');
-        return;
-      }
       setIsVerificationPending(true);
-      setFeedback('Enter the verification code sent to your email address.');
+      setFeedback('A confirmation email has been sent to your email address. Please click the link in the email to verify your account. Your account will be activated after confirmation.');
     } catch {
       setFeedback('Unable to create your account right now. Please try again.');
     } finally {
@@ -86,40 +80,20 @@ export default function Register() {
     }
   };
 
-  const handleVerifyEmail = async (event) => {
-    event.preventDefault();
-    if (!signUp || !verificationCode.trim()) return;
-    setIsLoading(true);
-    setFeedback('');
-    try {
-      const { error } = await signUp.verifications.verifyEmailCode({ code: verificationCode.trim() });
-      if (error || signUp.status !== 'complete') {
-        setFeedback('That verification code could not be confirmed. Check it and try again.');
-        return;
-      }
-      await signUp.finalize();
-      showAction('Account created successfully!');
-      navigate('/complete-profile');
-    } catch {
-      setFeedback('Unable to verify your email right now. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleSocialSignIn = async (provider) => {
     setFeedback('');
-    if (!isConfigured || !signUp) {
-      setFeedback('Social sign-in is unavailable until Clerk is configured.');
+    if (!isConfigured) {
+      setFeedback('Social sign-in is unavailable until Supabase is configured.');
       return;
     }
 
     setIsLoading(true);
     try {
-      const { error } = await signUp.sso({
-        strategy: `oauth_${provider}`,
-        redirectUrl: `${window.location.origin}/complete-profile`,
-        redirectCallbackUrl: `${window.location.origin}/complete-profile`,
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/complete-profile`,
+        },
       });
       if (error) setFeedback('Unable to start social sign-in. Please try again.');
     } catch {
@@ -148,20 +122,19 @@ export default function Register() {
         </div>
 
         {isVerificationPending ? (
-          <form className="auth-form auth-register-form" onSubmit={handleVerifyEmail}>
-            <div className="form-group">
-              <label htmlFor="verification-code">Email verification code</label>
-              <div className="input-wrapper">
-                <IconLock size={18} className="input-icon" />
-                <input id="verification-code" value={verificationCode} onChange={(event) => setVerificationCode(event.target.value)} inputMode="numeric" autoComplete="one-time-code" required />
-              </div>
+          <div className="auth-form auth-register-form">
+            <div className="verification-message">
+              <IconMail size={48} className="verification-icon" />
+              <h2>Check your email</h2>
+              <p>We've sent a confirmation email to <strong>{formData.email}</strong></p>
+              <p>Your account has been created but requires email verification before you can sign in.</p>
+              <p>Click the link in the email to activate your account.</p>
+              {feedback && <p className="auth-feedback">{feedback}</p>}
+              <button type="button" className="auth-button primary" onClick={() => window.location.reload()}>
+                {isLoading ? 'Sending...' : 'Resend email'}
+              </button>
             </div>
-            {feedback && <p className="auth-feedback" role="alert">{feedback}</p>}
-            <button type="submit" className="auth-button primary" disabled={isLoading}>
-              {isLoading ? 'Verifying...' : 'Verify email'}
-              {!isLoading && <IconArrowRight size={18} />}
-            </button>
-          </form>
+          </div>
         ) : <form className="auth-form auth-register-form" onSubmit={handleSubmit}>
           <div className="form-group auth-register-name">
             <label htmlFor="fullName">Full name</label>
@@ -246,15 +219,19 @@ export default function Register() {
           </button>
         </form>}
 
-        <div className="auth-divider"><span>or sign up with</span></div>
-        <div className="social-buttons">
-          <button type="button" className="social-button google" onClick={() => handleSocialSignIn('google')} disabled={isLoading}><IconBrandGoogle size={18} /><span>Google</span></button>
-          <button type="button" className="social-button facebook" onClick={() => handleSocialSignIn('facebook')} disabled={isLoading}><IconBrandFacebook size={18} /><span>Facebook</span></button>
-        </div>
+        {!isVerificationPending && (
+          <>
+            <div className="auth-divider"><span>or sign up with</span></div>
+            <div className="social-buttons">
+              <button type="button" className="social-button google" onClick={() => handleSocialSignIn('google')} disabled={isLoading}><IconBrandGoogle size={18} /><span>Google</span></button>
+              <button type="button" className="social-button facebook" onClick={() => handleSocialSignIn('facebook')} disabled={isLoading}><IconBrandFacebook size={18} /><span>Facebook</span></button>
+            </div>
 
-        <div className="auth-footer">
-          <p>Already have an account? <Link to="/login" className="link">Sign in</Link></p>
-        </div>
+            <div className="auth-footer">
+              <p>Already have an account? <Link to="/login" className="link">Sign in</Link></p>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
