@@ -69,22 +69,6 @@ export function SupabaseAuthProvider({ children }) {
           if (error) return { error };
           return { data, status: 'complete' };
         },
-        create: async ({ identifier }) => {
-          return { error: null };
-        },
-        resetPasswordEmailCode: {
-          sendCode: async () => {
-            const { error } = await supabase.auth.resetPasswordForEmail(identifier);
-            return { error };
-          },
-          verifyCode: async ({ code }) => {
-            return { error: new Error('Email verification not implemented') };
-          },
-          submitPassword: async ({ password }) => {
-            const { error } = await supabase.auth.updateUser({ password });
-            return { error };
-          },
-        },
         sso: async ({ strategy, redirectUrl, redirectCallbackUrl }) => {
           const provider = strategy.replace('oauth_', '');
           const { data, error } = await supabase.auth.signInWithOAuth({
