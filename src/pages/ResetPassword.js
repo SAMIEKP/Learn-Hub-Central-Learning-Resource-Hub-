@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { IconArrowRight, IconLock, IconMail } from '@tabler/icons-react';
-import { useLearnHubAuth } from '../auth/SupabaseAuthProvider';
 import { supabase } from '../lib/supabaseClient';
 import logo from '../logo.svg';
 import './Auth.css';
@@ -9,7 +8,6 @@ import './Auth.css';
 export default function ResetPassword() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isConfigured } = useLearnHubAuth();
   const [email, setEmail] = useState(searchParams.get('email') || '');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -23,7 +21,7 @@ export default function ResetPassword() {
     if (accessToken) {
       setIsRequestMode(false);
     }
-  }, []);
+  }, [searchParams]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -76,27 +74,6 @@ export default function ResetPassword() {
       } finally {
         setIsLoading(false);
       }
-    }
-  };
-
-  const resendCode = async () => {
-    if (!email.trim()) {
-      setFeedback('Enter the email address for your account first.');
-      return;
-    }
-    setIsLoading(true);
-    setFeedback('');
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
-      if (error) {
-        setFeedback('Unable to send a reset code. Check the email address and try again.');
-        return;
-      }
-      setFeedback('A new password reset email has been sent.');
-    } catch {
-      setFeedback('Unable to send a reset code. Check the email address and try again.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
