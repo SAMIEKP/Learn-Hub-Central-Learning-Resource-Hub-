@@ -35,12 +35,17 @@ export async function updateProfile(userId, profile) {
     bio: profile.bio,
   };
   if (profile.avatarPath) updates.avatar_path = profile.avatarPath;
-  const { data, error } = await supabase
+  const { data: existingProfile, error: lookupError } = await supabase
     .from('profiles')
-    .update(updates)
+    .select('id')
     .eq('id', userId)
-    .select(PROFILE_COLUMNS)
-    .single();
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+
+  const profileQuery = existingProfile
+    ? supabase.from('profiles').update(updates).eq('id', userId)
+    : supabase.from('profiles').insert({ id: userId, ...updates });
+  const { data, error } = await profileQuery.select(PROFILE_COLUMNS).single();
   if (error) throw error;
   return data;
 }

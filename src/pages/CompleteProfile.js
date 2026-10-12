@@ -70,7 +70,8 @@ export default function CompleteProfile() {
       showAction('Profile completed successfully!');
       setIsLoading(false);
       navigate('/');
-    } catch {
+    } catch (error) {
+      console.error('Unable to save the LearnHub profile:', error);
       setFeedback('Unable to save your profile right now. Please try again.');
       setIsLoading(false);
     }
