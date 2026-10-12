@@ -10,7 +10,7 @@ import './Auth.css';
 export default function Register() {
   const navigate = useNavigate();
   const showAction = useAppStore((state) => state.showAction);
-  const { isConfigured, signUp } = useLearnHubAuth();
+  const { isConfigured } = useLearnHubAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -48,7 +48,7 @@ export default function Register() {
       return;
     }
 
-    if (!isConfigured || !signUp) {
+    if (!isConfigured) {
       setFeedback('Account creation is not configured yet. Add the Supabase configuration to the app environment.');
       return;
     }
