@@ -18,8 +18,11 @@ create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   full_name text not null,
   role text not null default 'student'
-    check (role in ('student', 'teacher', 'admin')),
+    check (role in ('student', 'teacher', 'school_admin', 'admin')),
+  -- `school` remains temporarily for the current client. `school_id` is the
+  -- authoritative association and is maintained from an approved membership.
   school text,
+  school_id uuid,
   form text,
   department text,
   subjects text[] not null default '{}',
@@ -55,8 +58,12 @@ begin
   if coalesce(current_setting('request.jwt.claim.role', true), '') <> 'service_role' then
     if tg_op = 'INSERT' then
       new.role := 'student';
-    elsif new.role is distinct from old.role then
+    elsif new.role is distinct from old.role
+      and coalesce(current_setting('app.learnhub_membership_sync', true), '') <> 'on' then
       raise exception 'Profile roles can only be changed by trusted administrators';
+    elsif new.school_id is distinct from old.school_id
+      and coalesce(current_setting('app.learnhub_membership_sync', true), '') <> 'on' then
+      raise exception 'School membership can only be changed through an approved membership';
     end if;
   end if;
   return new;
@@ -101,9 +108,113 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_auth_user();
 
+create table public.schools (
+  id uuid primary key default gen_random_uuid(),
+  name text not null check (char_length(trim(name)) > 0),
+  district text,
+  school_type text check (school_type in ('public', 'private', 'mission', 'international', 'other')),
+  official_email text,
+  official_phone text,
+  description text,
+  logo_path text,
+  cover_image_path text,
+  verification_status text not null default 'pending'
+    check (verification_status in ('pending', 'verified', 'rejected', 'suspended')),
+  verified_by uuid references public.profiles (id) on delete set null,
+  verified_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index schools_name_unique_idx on public.schools (lower(name));
+
+alter table public.profiles
+  add constraint profiles_school_id_fkey
+  foreign key (school_id) references public.schools (id) on delete set null;
+
+create table public.school_memberships (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  school_id uuid not null references public.schools (id) on delete cascade,
+  membership_role text not null check (membership_role in ('student', 'teacher', 'school_admin')),
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'rejected', 'suspended')),
+  requested_at timestamptz not null default now(),
+  reviewed_by uuid references public.profiles (id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (user_id, school_id)
+);
+
+-- A person can have membership history, but only one active school at a time.
+create unique index school_memberships_one_approved_school_idx
+  on public.school_memberships (user_id)
+  where status = 'approved';
+create index school_memberships_school_status_idx
+  on public.school_memberships (school_id, status, membership_role);
+
+create or replace function public.is_school_admin(target_school_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.school_memberships as membership
+    where membership.user_id = auth.uid()
+      and membership.school_id = target_school_id
+      and membership.membership_role = 'school_admin'
+      and membership.status = 'approved'
+  )
+$$;
+
+revoke all on function public.is_school_admin(uuid) from public, anon;
+grant execute on function public.is_school_admin(uuid) to authenticated, service_role;
+
+create or replace function public.sync_profile_school_membership()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.status = 'approved'
+    and (
+      tg_op = 'INSERT'
+      or old.status is distinct from 'approved'
+      or old.membership_role is distinct from new.membership_role
+      or old.school_id is distinct from new.school_id
+    ) then
+    perform set_config('app.learnhub_membership_sync', 'on', true);
+    update public.profiles
+      set school_id = new.school_id,
+          role = new.membership_role
+      where id = new.user_id;
+  elsif tg_op = 'UPDATE'
+    and old.status = 'approved' and new.status is distinct from 'approved' then
+    perform set_config('app.learnhub_membership_sync', 'on', true);
+    update public.profiles
+      set school_id = null,
+          role = 'student'
+      where id = new.user_id and school_id = old.school_id;
+  end if;
+  return new;
+end
+$$;
+
+revoke all on function public.sync_profile_school_membership() from public, anon, authenticated;
+
+create trigger sync_profile_school_membership
+  after insert or update of status, membership_role, school_id on public.school_memberships
+  for each row execute function public.sync_profile_school_membership();
+
 create table public.resources (
   id uuid primary key default gen_random_uuid(),
   contributor_id uuid not null references public.profiles (id) on delete restrict,
+  school_id uuid not null references public.schools (id) on delete restrict,
   title text not null,
   description text,
   subject text,
@@ -128,9 +239,50 @@ create table public.resources (
   version integer not null default 1 check (version > 0),
   extracted_text text,
   keywords text[] not null default '{}',
+  language text not null default 'English',
+  academic_year integer check (academic_year is null or academic_year between 1900 and 2200),
+  edition text,
+  isbn text,
+  copyright_notice text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+create or replace function public.can_publish_resource(
+  target_school_id uuid,
+  target_resource_type text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select
+    (select public.current_profile_role()) = 'admin'
+    or (
+      (select public.current_profile_role()) = 'school_admin'
+      and public.is_school_admin(target_school_id)
+    )
+    or (
+      (select public.current_profile_role()) = 'teacher'
+      and target_resource_type in (
+        'paper', 'past_paper', 'marking_scheme', 'notes', 'class_note',
+        'revision_guide', 'teacher_explanation', 'video'
+      )
+      and exists (
+        select 1
+        from public.school_memberships as membership
+        where membership.user_id = auth.uid()
+          and membership.school_id = target_school_id
+          and membership.membership_role = 'teacher'
+          and membership.status = 'approved'
+      )
+    )
+$$;
+
+revoke all on function public.can_publish_resource(uuid, text) from public, anon;
+grant execute on function public.can_publish_resource(uuid, text) to authenticated, service_role;
 
 create table public.feed_posts (
   id uuid primary key default gen_random_uuid(),
@@ -297,6 +449,12 @@ create index resources_verified_created_idx
   on public.resources (created_at desc)
   where verification_status = 'verified';
 create index resources_contributor_idx on public.resources (contributor_id);
+create index resources_school_verified_created_idx
+  on public.resources (school_id, created_at desc)
+  where verification_status = 'verified';
+create index resources_filter_idx
+  on public.resources (resource_type, subject, department, form, academic_year)
+  where verification_status = 'verified';
 create index feed_posts_created_idx on public.feed_posts (created_at desc);
 create index feed_comments_post_created_idx on public.feed_comments (post_id, created_at);
 create index feed_comments_parent_idx on public.feed_comments (parent_comment_id);
@@ -312,6 +470,12 @@ create index school_membership_requests_pending_idx
 create trigger set_profiles_updated_at
   before update on public.profiles
   for each row execute function public.set_updated_at();
+create trigger set_schools_updated_at
+  before update on public.schools
+  for each row execute function public.set_updated_at();
+create trigger set_school_memberships_updated_at
+  before update on public.school_memberships
+  for each row execute function public.set_updated_at();
 create trigger set_resources_updated_at
   before update on public.resources
   for each row execute function public.set_updated_at();
@@ -326,6 +490,8 @@ create trigger set_school_membership_requests_updated_at
   for each row execute function public.set_updated_at();
 
 alter table public.profiles enable row level security;
+alter table public.schools enable row level security;
+alter table public.school_memberships enable row level security;
 alter table public.resources enable row level security;
 alter table public.feed_posts enable row level security;
 alter table public.feed_comments enable row level security;
@@ -347,27 +513,72 @@ create policy "Users can update their own profile"
   using (id = (select auth.uid()))
   with check (id = (select auth.uid()));
 
+create policy "Authenticated users can read verified schools"
+  on public.schools for select to authenticated
+  using (
+    verification_status = 'verified'
+    or (select public.current_profile_role()) = 'admin'
+  );
+create policy "Admins can create schools"
+  on public.schools for insert to authenticated
+  with check ((select public.current_profile_role()) = 'admin');
+create policy "Admins can update schools"
+  on public.schools for update to authenticated
+  using ((select public.current_profile_role()) = 'admin')
+  with check ((select public.current_profile_role()) = 'admin');
+
+create policy "Users can read their own school memberships"
+  on public.school_memberships for select to authenticated
+  using (
+    user_id = (select auth.uid())
+    or (select public.current_profile_role()) = 'admin'
+    or public.is_school_admin(school_id)
+  );
+create policy "Users can request student or teacher membership"
+  on public.school_memberships for insert to authenticated
+  with check (
+    user_id = (select auth.uid())
+    and status = 'pending'
+    and membership_role in ('student', 'teacher')
+    and exists (
+      select 1 from public.schools as school
+      where school.id = school_memberships.school_id
+        and school.verification_status = 'verified'
+    )
+  );
+create policy "Admins can review school memberships"
+  on public.school_memberships for update to authenticated
+  using ((select public.current_profile_role()) = 'admin')
+  with check ((select public.current_profile_role()) = 'admin');
+
 create policy "Users can read verified resources and their own submissions"
   on public.resources for select to authenticated
   using (
     verification_status = 'verified'
     or contributor_id = (select auth.uid())
-    or (select public.current_profile_role()) in ('teacher', 'admin')
+    or (select public.current_profile_role()) = 'admin'
   );
-create policy "Users can submit resources for review"
+create policy "Eligible publishers can submit resources for review"
   on public.resources for insert to authenticated
   with check (
     contributor_id = (select auth.uid())
     and verification_status = 'pending'
+    and (file_path is null or file_path like ((select auth.uid())::text || '/%'))
+    and public.can_publish_resource(school_id, resource_type)
   );
 create policy "Contributors can update pending resources"
   on public.resources for update to authenticated
   using (contributor_id = (select auth.uid()) and verification_status = 'pending')
-  with check (contributor_id = (select auth.uid()) and verification_status = 'pending');
-create policy "Teachers and admins can review resources"
+  with check (
+    contributor_id = (select auth.uid())
+    and verification_status = 'pending'
+    and (file_path is null or file_path like ((select auth.uid())::text || '/%'))
+    and public.can_publish_resource(school_id, resource_type)
+  );
+create policy "Admins can review resources"
   on public.resources for update to authenticated
-  using ((select public.current_profile_role()) in ('teacher', 'admin'))
-  with check ((select public.current_profile_role()) in ('teacher', 'admin'));
+  using ((select public.current_profile_role()) = 'admin')
+  with check ((select public.current_profile_role()) = 'admin');
 create policy "Admins can delete resources"
   on public.resources for delete to authenticated
   using ((select public.current_profile_role()) = 'admin');
@@ -470,6 +681,8 @@ create policy "Admins can review school membership requests"
   with check ((select public.current_profile_role()) = 'admin');
 
 grant select, insert, update on public.profiles to authenticated;
+grant select, insert, update on public.schools to authenticated;
+grant select, insert, update on public.school_memberships to authenticated;
 grant select, insert, update, delete on public.resources to authenticated;
 grant select, insert, update, delete on public.feed_posts to authenticated;
 grant select, insert, update, delete on public.feed_comments to authenticated;
@@ -487,20 +700,79 @@ values (
   true,
   10485760,
   array['image/jpeg', 'image/png', 'image/webp']
-);
+)
+on conflict (id) do update set
+  name = excluded.name,
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit,
+  allowed_mime_types = excluded.allowed_mime_types;
 
+insert into storage.buckets (id, name, public, file_size_limit)
+values (
+  'learnhub-resources',
+  'learnhub-resources',
+  false,
+  104857600
+)
+on conflict (id) do update set
+  name = excluded.name,
+  public = excluded.public,
+  file_size_limit = excluded.file_size_limit;
+
+drop policy if exists "Public feed images are readable" on storage.objects;
 create policy "Public feed images are readable"
   on storage.objects for select
   using (bucket_id = 'learnhub-feed-images');
+drop policy if exists "Users can upload images to their own feed folder" on storage.objects;
 create policy "Users can upload images to their own feed folder"
   on storage.objects for insert to authenticated
   with check (
     bucket_id = 'learnhub-feed-images'
     and (storage.foldername(name))[1] = (select auth.uid())::text
   );
+drop policy if exists "Users can delete images from their own feed folder" on storage.objects;
 create policy "Users can delete images from their own feed folder"
   on storage.objects for delete to authenticated
   using (
     bucket_id = 'learnhub-feed-images'
     and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+
+drop policy if exists "Approved resource files are readable to permitted users" on storage.objects;
+create policy "Approved resource files are readable to permitted users"
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'learnhub-resources'
+    and exists (
+      select 1
+      from public.resources as resource
+      where resource.file_path = name
+    )
+  );
+drop policy if exists "Eligible users can upload resource files to their own folder" on storage.objects;
+create policy "Eligible users can upload resource files to their own folder"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'learnhub-resources'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+  );
+drop policy if exists "Contributors can remove their pending resource files" on storage.objects;
+create policy "Contributors can remove their pending resource files"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'learnhub-resources'
+    and (storage.foldername(name))[1] = (select auth.uid())::text
+    and (
+      not exists (
+        select 1 from public.resources as resource
+        where resource.file_path = name
+      )
+      or exists (
+        select 1
+        from public.resources as resource
+        where resource.file_path = name
+          and resource.contributor_id = (select auth.uid())
+          and resource.verification_status = 'pending'
+      )
+    )
   );

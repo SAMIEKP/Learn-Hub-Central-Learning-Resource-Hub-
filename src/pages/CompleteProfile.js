@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconBook, IconUser, IconSchool, IconPhone, IconBuilding, IconArrowRight, IconX } from '@tabler/icons-react';
 import { useAppStore } from '../store/useAppStore';
 import { updateProfile } from '../api/profiles';
+import { listVerifiedSchools, requestSchoolMembership } from '../api/schools';
+import { supabase } from '../lib/supabaseClient';
 import { writeStoredValue } from '../utils/storage';
 import './Auth.css';
 
@@ -11,6 +13,8 @@ export default function CompleteProfile() {
   const { user, showAction, updateUser } = useAppStore();
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [schools, setSchools] = useState([]);
+  const [schoolsLoaded, setSchoolsLoaded] = useState(false);
   const [formData, setFormData] = useState({
     school: '',
     form: '',
@@ -21,6 +25,27 @@ export default function CompleteProfile() {
   });
 
   const [selectedSubjects, setSelectedSubjects] = useState([]);
+
+  useEffect(() => {
+    let isActive = true;
+    if (!supabase) {
+      setSchoolsLoaded(true);
+      return undefined;
+    }
+    listVerifiedSchools()
+      .then((items) => {
+        if (isActive) setSchools(items);
+      })
+      .catch(() => {
+        if (isActive) setFeedback('Verified schools are temporarily unavailable. You can save the rest of your profile and choose one later.');
+      })
+      .finally(() => {
+        if (isActive) setSchoolsLoaded(true);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const subjects = [
     'Mathematics',
@@ -40,6 +65,18 @@ export default function CompleteProfile() {
     setIsLoading(true);
     setFeedback('');
 
+    const selectedSchool = schools.find((school) => school.name === formData.school.trim());
+    if (supabase && !schoolsLoaded && formData.school.trim()) {
+      setFeedback('Verified schools are still loading. Please try again in a moment.');
+      setIsLoading(false);
+      return;
+    }
+    if (supabase && schoolsLoaded && formData.school.trim() && !selectedSchool) {
+      setFeedback('Choose a verified school from the suggestions.');
+      setIsLoading(false);
+      return;
+    }
+
     const updatedProfile = {
       ...user,
       school: formData.school || 'Not specified',
@@ -51,6 +88,9 @@ export default function CompleteProfile() {
     };
 
     try {
+      if (selectedSchool && user?.id) {
+        await requestSchoolMembership({ userId: user.id, schoolId: selectedSchool.id });
+      }
       if (user?.id) {
         await updateProfile(user.id, {
           name: user.name,
@@ -67,7 +107,7 @@ export default function CompleteProfile() {
 
       writeStoredValue('learnhub-profile-details', updatedProfile);
       updateUser(updatedProfile);
-      showAction('Profile completed successfully!');
+      showAction(selectedSchool ? 'Profile saved. Your school membership is awaiting approval.' : 'Profile completed successfully!');
       setIsLoading(false);
       navigate('/');
     } catch (error) {
@@ -118,11 +158,14 @@ export default function CompleteProfile() {
                 id="school"
                 name="school"
                 type="text"
+                list={schools.length ? 'verified-schools' : undefined}
                 placeholder="Blantyre Secondary School"
                 value={formData.school}
                 onChange={handleChange}
               />
+              {schools.length > 0 && <datalist id="verified-schools">{schools.map((school) => <option key={school.id} value={school.name}>{school.district || ''}</option>)}</datalist>}
             </div>
+            {supabase && schoolsLoaded && <small className="form-help-text">Choose a verified school to submit a membership request.</small>}
           </div>
 
           <div className="form-group">

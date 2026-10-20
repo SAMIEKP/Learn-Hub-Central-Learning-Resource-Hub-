@@ -66,6 +66,7 @@ import { formatDate } from './utils/date';
 import { supabase } from './lib/supabaseClient';
 import { useLearnHubAuth } from './auth/SupabaseAuthProvider';
 import { updateProfile } from './api/profiles';
+import { submitResource } from './api/resources';
 import {
   createSocialComment,
   createSocialPost,
@@ -1208,6 +1209,8 @@ function PublisherStudioPage({ onNavigate, onAction, onSubmitResource }) {
   const [postType, setPostType] = useState('book');
   const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
+  const [uploadFile, setUploadFile] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { register, handleSubmit, setValue, watch, reset } = useForm({ defaultValues: { type: 'book' } });
   const formData = watch();
 
@@ -1245,15 +1248,17 @@ function PublisherStudioPage({ onNavigate, onAction, onSubmitResource }) {
       onAction(`That file type is not allowed for a ${postType}. Images cannot be uploaded.`);
       return;
     }
+    setUploadFile(file);
     updateField(key, file.name);
   };
   const changeType = (event) => {
     setPostType(event.target.value);
     setStep(0);
+    setUploadFile(null);
     reset({ type: event.target.value });
   };
 
-  const nextStep = (data) => {
+  const nextStep = async (data) => {
     const fields = currentStep.fields.filter((field) => field.key !== 'type');
     const schema = z.object(Object.fromEntries(fields.map((field) => [field.key, z.string().trim().min(1, `${field.label} is required`)])));
     const result = schema.safeParse(data);
@@ -1263,21 +1268,15 @@ function PublisherStudioPage({ onNavigate, onAction, onSubmitResource }) {
     }
     if (step < steps.length - 1) setStep(step + 1);
     else {
-      onSubmitResource({
-        id: `posted-${Date.now()}`,
-        title: data.title,
-        resourceType: postType,
-        type: postType,
-        meta: `${data.subject || 'General'} · Learn Hub submission`,
-        author: data.author || data.instructor || 'Learn Hub contributor',
-        board: data.board,
-        year: data.year,
-        duration: data.duration,
-        fileName: data.file,
-        submittedDate: formatDate(new Date()),
-        image: recommendations[0].image,
-      });
-      setSubmitted(true);
+      setIsSubmitting(true);
+      try {
+        await onSubmitResource({ postType, values: data, file: uploadFile });
+        setSubmitted(true);
+      } catch (error) {
+        onAction(error.message || 'Unable to submit this resource. Please try again.');
+      } finally {
+        setIsSubmitting(false);
+      }
     }
   };
 
@@ -1285,7 +1284,7 @@ function PublisherStudioPage({ onNavigate, onAction, onSubmitResource }) {
     if (field.kind === 'type') return <select {...register('type')} value={postType} onChange={changeType}><option value="book">Book</option><option value="paper">Past paper</option><option value="video">Video lesson</option></select>;
     if (field.kind === 'subject') return <select {...register(field.key)} defaultValue=""><option value="">Choose a subject</option><option>Science</option><option>Mathematics</option><option>Languages</option><option>Humanities</option><option>Business</option></select>;
     if (field.kind === 'textarea') return <textarea {...register(field.key)} placeholder={field.placeholder} />;
-    if (field.kind === 'file') return <FileDropzone fileName={formData[field.key]} onFile={(file) => handleFile(field.key, file)} accept={{ [field.accept.includes('video') ? 'video/*' : 'application/*']: [] }} />;
+    if (field.kind === 'file') return <FileDropzone fileName={formData[field.key]} onFile={(file) => handleFile(field.key, file)} disabled={isSubmitting} accept={{ [field.accept.includes('video') ? 'video/*' : 'application/*']: [] }} />;
     return <input {...register(field.key)} type={field.kind || 'text'} placeholder={field.placeholder} />;
   };
 
@@ -1294,7 +1293,7 @@ function PublisherStudioPage({ onNavigate, onAction, onSubmitResource }) {
     <div className="publish-book-background publish-book-background-top" aria-hidden="true" />
     <div className="publish-book-background publish-book-background-bottom" aria-hidden="true" />
     <main className="resource-detail-content">
-      <div className="publish-layout"><section className="book-info-card publish-book-card"><span className="eyebrow">Publisher Studio</span><h2>{submitted ? `${typeName} submitted` : 'Share a resource with Learn Hub'}</h2><p>{submitted ? 'Your resource is now queued for review by the Learn Hub team.' : 'Complete each step to provide the information learners need.'}</p>{submitted ? <div className="publish-success"><span className="publish-success-icon"><IconCheck size={18} /></span><strong>Thanks for contributing to Learn Hub.</strong><small>Our team will review your {postType} before it becomes available to learners.</small><button type="button" className="primary-button" onClick={() => { setSubmitted(false); setStep(0); reset({ type: postType }); }}>Post another resource</button></div> : <form className="publish-book-form" onSubmit={handleSubmit(nextStep)}><div className="publish-step-progress" aria-label={`Step ${step + 1} of ${steps.length}`}>{steps.map((item, index) => <div key={item.title} className={`publish-step-indicator ${index <= step ? 'is-current' : ''}`}><span>{index + 1}</span><small>{item.title}</small></div>)}</div><div className="publish-step-card"><span className="eyebrow">Step {step + 1} of {steps.length}</span><h3>{currentStep.title}</h3>{currentStep.fields.map((field) => <label key={field.key}>{field.label}{renderField(field)}</label>)}</div><div className="publish-book-actions"><button type="button" className="outline-button" onClick={() => step === 0 ? onNavigate('home') : setStep(step - 1)}>{step === 0 ? 'Cancel' : 'Back'}</button><button type="submit" className="primary-button">{step === steps.length - 1 ? `Submit ${postType}` : 'Continue'}</button></div></form>}</section><aside className="publish-help-card"><span className="eyebrow">Upload guide</span><h3>Prepare your resource</h3><p>Follow these quick tips before you submit.</p><div className="publish-help-item"><strong>Book</strong><span>Upload a clear PDF, EPUB, DOC, or DOCX file. Include the author and publisher details.</span></div><div className="publish-help-item"><strong>Past paper</strong><span>Upload a PDF, DOC, or DOCX file and include the exam board and year.</span></div><div className="publish-help-item"><strong>Video lesson</strong><span>Upload an MP4, WebM, MOV, AVI, or MKV file with the instructor and duration.</span></div><div className="publish-help-note"><IconCheck size={14} /> Images are not accepted.</div></aside></div>
+      <div className="publish-layout"><section className="book-info-card publish-book-card"><span className="eyebrow">Publisher Studio</span><h2>{submitted ? `${typeName} submitted` : 'Share a resource with Learn Hub'}</h2><p>{submitted ? 'Your resource is now queued for review by the Learn Hub team.' : 'Complete each step to provide the information learners need.'}</p>{submitted ? <div className="publish-success"><span className="publish-success-icon"><IconCheck size={18} /></span><strong>Thanks for contributing to Learn Hub.</strong><small>Our team will review your {postType} before it becomes available to learners.</small><button type="button" className="primary-button" onClick={() => { setSubmitted(false); setStep(0); setUploadFile(null); reset({ type: postType }); }}>Post another resource</button></div> : <form className="publish-book-form" onSubmit={handleSubmit(nextStep)}><div className="publish-step-progress" aria-label={`Step ${step + 1} of ${steps.length}`}>{steps.map((item, index) => <div key={item.title} className={`publish-step-indicator ${index <= step ? 'is-current' : ''}`}><span>{index + 1}</span><small>{item.title}</small></div>)}</div><div className="publish-step-card"><span className="eyebrow">Step {step + 1} of {steps.length}</span><h3>{currentStep.title}</h3>{currentStep.fields.map((field) => <label key={field.key}>{field.label}{renderField(field)}</label>)}</div><div className="publish-book-actions"><button type="button" className="outline-button" disabled={isSubmitting} onClick={() => step === 0 ? onNavigate('home') : setStep(step - 1)}>{step === 0 ? 'Cancel' : 'Back'}</button><button type="submit" className="primary-button" disabled={isSubmitting}>{isSubmitting ? 'Submitting…' : step === steps.length - 1 ? `Submit ${postType}` : 'Continue'}</button></div></form>}</section><aside className="publish-help-card"><span className="eyebrow">Upload guide</span><h3>Prepare your resource</h3><p>Follow these quick tips before you submit.</p><div className="publish-help-item"><strong>Book</strong><span>Upload a clear PDF, EPUB, DOC, or DOCX file. Include the author and publisher details.</span></div><div className="publish-help-item"><strong>Past paper</strong><span>Upload a PDF, DOC, or DOCX file and include the exam board and year.</span></div><div className="publish-help-item"><strong>Video lesson</strong><span>Upload an MP4, WebM, MOV, AVI, or MKV file with the instructor and duration.</span></div><div className="publish-help-note"><IconCheck size={14} /> Images are not accepted.</div></aside></div>
     </main>
   </div>;
 }
@@ -1699,9 +1698,42 @@ function AppContent() {
     });
   };
 
-  const savePostedResource = (resource) => {
+  const savePostedResource = async ({ postType, values, file }) => {
+    let resource = {
+      id: `posted-${Date.now()}`,
+      title: values.title,
+      resourceType: postType,
+      type: postType,
+      meta: `${values.subject || 'General'} · Learn Hub submission`,
+      author: values.author || values.instructor || 'Learn Hub contributor',
+      board: values.board,
+      year: values.year,
+      duration: values.duration,
+      fileName: file?.name || values.file,
+      submittedDate: formatDate(new Date()),
+      image: recommendations[0].image,
+    };
+
+    if (supabase) {
+      if (!authenticatedUser?.id) throw new Error('Sign in before submitting a resource.');
+      const saved = await submitResource({
+        userId: authenticatedUser.id,
+        postType,
+        values,
+        file,
+      });
+      resource = {
+        ...resource,
+        id: saved.id,
+        resourceType: saved.resource_type === 'past_paper' ? 'paper' : saved.resource_type,
+        fileName: saved.file_name,
+        submittedDate: formatDate(new Date(saved.created_at)),
+      };
+    }
+
     setPostedResources((currentResources) => [resource, ...currentResources.filter((item) => resourceKey(item) !== resourceKey(resource))]);
-    showAction(`${resource.resourceType === 'paper' ? 'Paper' : resource.resourceType === 'video' ? 'Video' : 'Book'} submitted for review.`);
+    showAction(`${postType === 'paper' ? 'Paper' : postType === 'video' ? 'Video' : 'Book'} submitted for review.`);
+    return resource;
   };
 
   const resetDiscoverComposer = () => {

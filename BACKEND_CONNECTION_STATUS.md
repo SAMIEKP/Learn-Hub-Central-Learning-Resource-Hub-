@@ -54,30 +54,27 @@ GEMINI_API_KEY=your-gemini-api-key
 1. Frontend auth migrated from Clerk to Supabase Auth
 2. Python backend updated to verify Supabase JWT tokens (not Clerk)
 3. Documentation updated to reflect Supabase Auth usage
-4. Created Supabase Auth-compatible schema (`schema-supabase-auth.sql`)
+4. Created the Supabase Auth-compatible application schema (`backend/supabase/app-schema.sql`)
 
 ### ⚠️ Important: Database Schema Update Required
 
 The database schema has been updated to use Supabase Auth. There are two scenarios:
 
 **Scenario 1: New Database (No Existing Data)**
-- Apply `backend/supabase/schema.sql` in Supabase SQL Editor
-- This creates all tables with Supabase Auth support
+- Apply `backend/supabase/app-schema.sql` in the Supabase SQL Editor.
+- This creates the Supabase Auth tables, verified schools and memberships,
+  resource publishing controls, feed tables, and storage policies.
 
-**Scenario 2: Existing Database with Clerk Schema**
-- Apply `backend/supabase/migrate-to-supabase-auth.sql` in Supabase SQL Editor
-- This updates existing schema from Clerk to Supabase Auth
-- See `DATABASE_MIGRATION_GUIDE.md` for detailed instructions
+**Scenario 2: Existing Database**
+- Do not re-run the fresh-project schema against an existing database.
+- Create and review a dedicated migration for the database's current state before
+  deploying these changes.
 
 The schema now:
-- Uses `current_user_id()` function (Supabase Auth)
-- Has RLS policies that work with Supabase Auth user IDs
-- Maintains the same table structure and relationships
-
-**Deleted Files:**
-- `backend/supabase/schema-supabase-auth.sql` (renamed to schema.sql)
-- `backend/supabase/migrations/20260602_migrate_clerk_identity_ids.sql` (Clerk migration)
-- `backend/supabase/migrations/20260602_prepare_clerk_identity_map.sql` (Clerk migration)
+- Uses Supabase Auth's `auth.uid()` in RLS policies.
+- Protects tables with least-privilege RLS policies.
+- Uses approved school memberships to determine who can publish resources.
+- Keeps resource files in a private Storage bucket.
 
 ## Testing the Connection
 
@@ -141,8 +138,10 @@ curl -X POST http://localhost:5001/assistant/chat \
 **Solution**: Ensure `SUPABASE_JWT_SECRET` is set correctly in Python backend .env
 
 ### Issue: RLS policies blocking access
-**Cause**: Old Clerk-based schema still in use
-**Solution**: Apply `schema-supabase-auth.sql` to your Supabase project
+**Cause**: The current `app-schema.sql` has not been applied, or the connected
+database is running an older schema.
+**Solution**: For a new project, apply `backend/supabase/app-schema.sql`. For an
+existing project, create a reviewed migration instead of applying the fresh schema.
 
 ### Issue: CORS errors
 **Cause**: `CLIENT_ORIGIN` not set correctly
